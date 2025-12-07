@@ -1,0 +1,137 @@
+{
+  "P001": {
+    "name": "Wireless Bluetooth Headphones",
+    "price": 79.99,
+    "category": "Electronics",
+    "features": ["Noise cancellation", "30-hour battery", "Wireless", "Foldable design"],
+    "returnable": true,
+    "return_window": 30,
+    "stock": 45
+  },
+  "P002": {
+    "name": "Smart Fitness Watch",
+    "price": 199.99,
+    "category": "Electronics",
+    "features": ["Heart rate monitor", "GPS tracking", "Waterproof", "Sleep tracking"],
+    "returnable": true,
+    "return_window": 30,
+    "stock": 28
+  },
+  "P003": {
+    "name": "Running Shoes",
+    "price": 89.99,
+    "category": "Sports",
+    "features": ["Breathable mesh", "Cushioned sole", "Lightweight", "Durable"],
+    "returnable": true,
+    "return_window": 30,
+    "stock": 67
+  },
+  "P004": {
+    "name": "Yoga Mat",
+    "price": 29.99,
+    "category": "Sports",
+    "features": ["Non-slip surface", "Extra thick", "Eco-friendly", "Carrying strap"],
+    "returnable": true,
+    "return_window": 30,
+    "stock": 120
+  },
+  "P005": {
+    "name": "Coffee Maker",
+    "price": 149.99,
+    "category": "Home",
+    "features": ["Programmable", "12-cup capacity", "Auto shut-off", "Reusable filter"],
+    "returnable": true,
+    "return_window": 30,
+    "stock": 34
+  },
+  "P006": {
+    "name": "LED Desk Lamp",
+    "price": 39.99,
+    "category": "Home",
+    "features": ["Adjustable brightness", "USB charging port", "Touch control", "Energy efficient"],
+    "returnable": true,
+    "return_window": 30,
+    "stock": 89
+  },
+  "P007": {
+    "name": "Laptop Backpack",
+    "price": 59.99,
+    "category": "Accessories",
+    "features": ["Water resistant", "Padded laptop compartment", "USB charging port", "Anti-theft"],
+    "returnable": true,
+    "return_window": 30,
+    "stock": 56
+  },
+  "P008": {
+    "name": "Wireless Mouse",
+    "price": 24.99,
+    "category": "Electronics",
+    "features": ["Ergonomic design", "Silent clicks", "Long battery life", "Bluetooth"],
+    "returnable": true,
+    "return_window": 30,
+    "stock": 145
+  },
+  "P009": {
+    "name": "Water Bottle",
+    "price": 19.99,
+    "category": "Sports",
+    "features": ["Insulated", "BPA-free", "Leak-proof", "24oz capacity"],
+    "returnable": true,
+    "return_window": 30,
+    "stock": 203
+  },
+  "P010": {
+    "name": "Phone Stand",
+    "price": 14.99,
+    "category": "Accessories",
+    "features": ["Adjustable angle", "Non-slip base", "Foldable", "Universal compatibility"],
+    "returnable": true,
+    "return_window": 30,
+    "stock": 178
+  },
+  "P011": {
+    "name": "Bluetooth Speaker",
+    "price": 69.99,
+    "category": "Electronics",
+    "features": ["360-degree sound", "Waterproof", "20-hour battery", "Portable"],
+    "returnable": true,
+    "return_window": 30,
+    "stock": 42
+  },
+  "P012": {
+    "name": "Resistance Bands Set",
+    "price": 34.99,
+    "category": "Sports",
+    "features": ["5 resistance levels", "Portable", "Door anchor included", "Exercise guide"],
+    "returnable": true,
+    "return_window": 30,
+    "stock": 91
+  },
+  "P013": {
+    "name": "Digital Gift Card",
+    "price": 50.00,
+    "category": "Gift Cards",
+    "features": ["Instant delivery", "No expiration", "Any amount"],
+    "returnable": false,
+    "return_window": 0,
+    "stock": 999
+  },
+  "P014": {
+    "name": "Personalized Mug",
+    "price": 18.99,
+    "category": "Home",
+    "features": ["Custom text", "Dishwasher safe", "11oz capacity", "Ceramic"],
+    "returnable": false,
+    "return_window": 0,
+    "stock": 67
+  },
+  "P015": {
+    "name": "USB-C Cable",
+    "price": 12.99,
+    "category": "Electronics",
+    "features": ["Fast charging", "6ft length", "Braided nylon", "Universal"],
+    "returnable": true,
+    "return_window": 30,
+    "stock": 234
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "rules": [
+    {
+      "id": "R001",
+      "name": "Order Status with Order ID",
+      "condition": {
+        "intent": "order_status",
+        "has_order_id": true
+      },
+      "action": "get_order_status",
+      "priority": 10,
+      "response_template": "Your order {order_id} is currently {status}. Expected delivery: {delivery_date}"
+    },
+    {
+      "id": "R002",
+      "name": "Order Status without Order ID",
+      "condition": {
+        "intent": "order_status",
+        "has_order_id": false
+      },
+      "action": "request_order_id",
+      "priority": 5,
+      "response_template": "I'd be happy to check your order status. Please provide your order number (format: ORD12345)."
+    },
+    {
+      "id": "R003",
+      "name": "General Return Policy",
+      "condition": {
+        "intent": "return_policy",
+        "has_product_id": false
+      },
+      "action": "get_return_policy",
+      "priority": 7,
+      "response_template": "Our return policy allows returns within 30 days of delivery."
+    },
+    {
+      "id": "R004",
+      "name": "Product Specific Return",
+      "condition": {
+        "intent": "return_policy",
+        "has_product_id": true
+      },
+      "action": "check_product_returnability",
+      "priority": 9,
+      "response_template": "Let me check the return policy for that specific product."
+    },
+    {
+      "id": "R005",
+      "name": "Product Recommendation",
+      "condition": {
+        "intent": "product_recommendation"
+      },
+      "action": "recommend_products",
+      "priority": 8,
+      "response_template": "Based on your needs, I recommend the following products."
+    },
+    {
+      "id": "R006",
+      "name": "Product Information",
+      "condition": {
+        "intent": "product_info",
+        "has_product_id": true
+      },
+      "action": "get_product_info",
+      "priority": 9,
+      "response_template": "Here's the information about that product."
+    },
+    {
+      "id": "R007",
+      "name": "Shipping Policy",
+      "condition": {
+        "intent": "shipping_info"
+      },
+      "action": "get_shipping_policy",
+      "priority": 7,
+      "response_template": "Here's our shipping information."
+    },
+    {
+      "id": "R008",
+      "name": "General Inquiry",
+      "condition": {
+        "intent": "general_inquiry"
+      },
+      "action": "provide_general_help",
+      "priority": 3,
+      "response_template": "I'm here to help! I can assist with order status, returns, product recommendations, and general inquiries."
+    },
+    {
+      "id": "R009",
+      "name": "Greeting",
+      "condition": {
+        "intent": "greeting"
+      },
+      "action": "greet_user",
+      "priority": 6,
+      "response_template": "Hello! Welcome to E-Shop customer support. How can I assist you today?"
+    },
+    {
+      "id": "R010",
+      "name": "Warranty Information",
+      "condition": {
+        "intent": "warranty_info"
+      },
+      "action": "get_warranty_info",
+      "priority": 7,
+      "response_template": "Let me provide you with warranty information."
+    },
+    {
+      "id": "R011",
+      "name": "Payment Methods",
+      "condition": {
+        "intent": "payment_info"
+      },
+      "action": "get_payment_info",
+      "priority": 6,
+      "response_template": "Here's information about our payment methods."
+    },
+    {
+      "id": "R012",
+      "name": "Cancellation Request",
+      "condition": {
+        "intent": "cancel_order"
+      },
+      "action": "handle_cancellation",
+      "priority": 9,
+      "response_template": "I can help you with order cancellation."
+    }
+  ]
+}
