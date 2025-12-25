@@ -1,9 +1,66 @@
 import sys
 import os
 import argparse
+import logging
+import time
 
 # Add src directory to path
 sys.path.insert(0, os.path.dirname(__file__))
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+def preload_ai_model():
+    """
+    Preload the AI NLP model on startup.
+    
+    This function initializes the AI NLP processor and loads the Hugging Face
+    model before the API starts accepting requests. This ensures the first
+    request doesn't experience model loading latency.
+    
+    Requirements: 5.1, 5.2
+    
+    Returns:
+        tuple: (success: bool, ai_nlp: AINLPProcessor or None, load_time: float)
+    """
+    from src.nlp_config import NLPConfig
+    from src.ai_nlp_processor import AINLPProcessor
+    
+    logger.info("=" * 60)
+    logger.info("AI NLP Model Initialization")
+    logger.info("=" * 60)
+    
+    # Load and log configuration
+    config = NLPConfig.from_env()
+    logger.info(f"Model: {config.model_name}")
+    logger.info(f"Confidence Threshold: {config.confidence_threshold}")
+    logger.info(f"Ambiguity Threshold: {config.ambiguity_threshold}")
+    logger.info(f"Intent Labels: {len(config.intent_labels)} configured")
+    
+    start_time = time.time()
+    
+    try:
+        logger.info("Loading AI model (this may take a moment)...")
+        ai_nlp = AINLPProcessor(config)
+        load_time = time.time() - start_time
+        
+        if ai_nlp.use_ai:
+            logger.info(f"✓ AI model loaded successfully in {load_time:.2f}s")
+            return True, ai_nlp, load_time
+        else:
+            logger.warning(f"AI model not available, using keyword-based fallback")
+            return False, ai_nlp, load_time
+            
+    except Exception as e:
+        load_time = time.time() - start_time
+        logger.error(f"✗ Failed to load AI model after {load_time:.2f}s: {e}")
+        logger.info("System will use keyword-based NLP as fallback")
+        return False, None, load_time
 
 
 def run_cli_mode():
@@ -32,14 +89,34 @@ def run_api_mode(host='0.0.0.0', port=5000, debug=False):
     from src.api import app, init_app, shutdown
     
     print("\nStarting E-Shop Customer Support Chatbot (API Mode)...")
+    
+    # Preload AI model before starting API
+    logger.info("-" * 60)
+    ai_success, ai_nlp, load_time = preload_ai_model()
+    logger.info("-" * 60)
+    
+    if ai_success:
+        print(f"✓ AI NLP model loaded ({load_time:.2f}s)")
+    else:
+        print(f"⚠ AI NLP unavailable, using keyword-based fallback")
+    
     print("Connecting to PostgreSQL database...")
     
     try:
         init_app()
-        print(f"Server running at http://{host}:{port}")
+        
+        logger.info("=" * 60)
+        logger.info("Server Configuration")
+        logger.info("=" * 60)
+        logger.info(f"Host: {host}")
+        logger.info(f"Port: {port}")
+        logger.info(f"Debug Mode: {debug}")
+        logger.info(f"AI NLP: {'Enabled' if ai_success else 'Fallback (keyword-based)'}")
+        
+        print(f"\nServer running at http://{host}:{port}")
         print("Endpoints:")
-        print(f"POST http://{host}:{port}/api/chat")
-        print(f"GET  http://{host}:{port}/api/health")
+        print(f"  POST http://{host}:{port}/api/chat")
+        print(f"  GET  http://{host}:{port}/api/health")
         print("\nPress Ctrl+C to stop the server.\n")
         
         app.run(host=host, port=port, debug=debug)
@@ -48,6 +125,7 @@ def run_api_mode(host='0.0.0.0', port=5000, debug=False):
         shutdown()
         print("Server stopped gracefully.")
     except Exception as e:
+        logger.error(f"Failed to start API: {e}")
         print(f"\nFailed to start API: {e}")
         shutdown()
         sys.exit(1)

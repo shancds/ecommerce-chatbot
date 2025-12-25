@@ -9,20 +9,22 @@ class NLPProcessor:
     
     def __init__(self):
         # Intent keywords for classification
+        # Order matters - more specific phrases should be checked first
+        # Multi-word phrases get higher weight in scoring
         self.intent_keywords = {
             'greeting': ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'greetings'],
-            'order_status': ['order', 'track', 'status', 'where', 'delivery', 'shipped', 'tracking', 'when will'],
-            'order_history': ['my orders', 'order history', 'past orders', 'previous orders', 'purchases', 'bought'],
-            'return_policy': ['return', 'refund', 'exchange', 'send back', 'policy', 'money back'],
-            'product_recommendation': ['recommend', 'suggest', 'looking for', 'need', 'want to buy', 'show me', 'find'],
-            'product_search': ['search', 'find product', 'products with', 'products named', 'category', 'feature'],
-            'product_info': ['tell me about', 'details', 'information', 'price', 'features', 'specs', 'what is'],
-            'shipping_info': ['shipping', 'delivery time', 'how long', 'ship', 'deliver'],
+            'order_status': ['order status', 'track order', 'where is my order', 'order tracking', 'shipped', 'tracking number', 'when will'],
+            'order_history': ['order history', 'my orders', 'past orders', 'previous orders', 'purchases', 'bought', 'show my order', 'what did i order'],
+            'return_policy': ['return policy', 'refund', 'exchange', 'send back', 'money back', 'can i return'],
+            'product_recommendation': ['recommend', 'suggest', 'looking for', 'want to buy', 'show me products', 'find products'],
+            'product_search': ['search for', 'find product', 'products with', 'products named', 'category', 'feature'],
+            'product_info': ['tell me about', 'product details', 'information about', 'price of', 'features of', 'specs', 'what is product'],
+            'shipping_info': ['shipping', 'delivery time', 'how long does shipping', 'ship', 'deliver'],
             'warranty_info': ['warranty', 'guarantee', 'coverage', 'protection'],
             'payment_info': ['payment', 'pay', 'credit card', 'paypal', 'how to pay'],
-            'cancel_order': ['cancel', 'cancellation', 'stop order', 'dont want'],
-            'user_profile': ['my profile', 'my account', 'account details', 'profile info', 'my information'],
-            'general_inquiry': ['help', 'support', 'question', 'info', 'tell me']
+            'cancel_order': ['cancel order', 'cancellation', 'stop order', 'dont want order'],
+            'user_profile': ['my profile', 'my account', 'account details', 'profile info', 'my information', 'show my profile'],
+            'general_inquiry': ['help', 'support', 'question', 'info']
         }
     
     def classify_intent(self, text):
@@ -30,9 +32,14 @@ class NLPProcessor:
         text_lower = text.lower()
         
         # Count keyword matches for each intent
+        # Longer phrases get higher weight (more specific matches)
         scores = {}
         for intent, keywords in self.intent_keywords.items():
-            score = sum(1 for keyword in keywords if keyword in text_lower)
+            score = 0
+            for keyword in keywords:
+                if keyword in text_lower:
+                    # Weight by keyword length - longer phrases are more specific
+                    score += len(keyword.split())
             scores[intent] = score
         
         # Return intent with highest score

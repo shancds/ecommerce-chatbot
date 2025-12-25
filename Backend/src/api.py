@@ -10,6 +10,8 @@ from src.database import Database, DatabaseConnectionError, ConfigurationError
 from src.knowledge_base import KnowledgeBase
 from src.inference_engine import InferenceEngine
 from src.nlp_processor import NLPProcessor
+from src.ai_nlp_processor import AINLPProcessor
+from src.conversation_context import ConversationContext
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -27,56 +29,148 @@ db = None
 kb = None
 inference_engine = None
 nlp = None
+ai_nlp = None
+conversation_contexts = {}  # Store conversation contexts per session
 
 
 def init_app():
     """Initialize database connection and agent components."""
-    global db, kb, inference_engine, nlp
+    global db, kb, inference_engine, nlp, ai_nlp
     
     try:
         db = Database()
         db.connect()
         kb = KnowledgeBase(db)
         inference_engine = InferenceEngine(kb)
-        nlp = NLPProcessor()
+        nlp = NLPProcessor()  # Keep for backward compatibility
+        
+        # Initialize AI NLP Processor
+        try:
+            ai_nlp = AINLPProcessor()
+            logger.info("AI NLP Processor initialized successfully")
+        except Exception as e:
+            logger.warning(f"AI NLP Processor initialization failed, using fallback: {e}")
+            ai_nlp = None
+        
         logger.info("API initialized successfully")
     except (DatabaseConnectionError, ConfigurationError) as e:
         logger.error(f"Failed to initialize API: {e}")
         raise
 
 
-def process_message(user_input, user_context=None):
+def process_message(user_input, user_context=None, conversation_context=None):
+    """
+    Process user message with AI-enhanced NLP.
+    
+    Args:
+        user_input: User's message
+        user_context: Authentication context {user_id, role}
+        conversation_context: ConversationContext instance for multi-turn conversations
+        
+    Returns:
+        Response string with data from database
+        
+    Requirements: 5.3, 8.1, 8.2, 8.3
+    """
     if user_context is None:
         user_context = {'user_id': None, 'role': 'guest'}
     
-    # Perception phase
-    processed_text = nlp.preprocess_text(user_input)
-    intent = nlp.classify_intent(processed_text)
-    entities = nlp.extract_entities(processed_text)
+    # Get context for follow-up questions
+    context_data = None
+    if conversation_context:
+        context_data = conversation_context.get_context()
     
-    perception = {
-        'intent': intent,
-        'raw_input': user_input,
-        'processed_input': processed_text,
-        'user_context': user_context,
-        **entities
-    }
+    # Perception phase - Use AI NLP if available, otherwise fallback
+    if ai_nlp is not None:
+        # Use AI NLP processor
+        nlp_result = ai_nlp.process(user_input, context=context_data)
+        
+        intent = nlp_result['intent']
+        entities = nlp_result['entities']
+        processed_text = nlp_result['processed_input']
+        confidence = nlp_result['confidence']
+        used_fallback = nlp_result['used_fallback']
+        all_intent_scores = nlp_result.get('all_intent_scores', {})
+        is_ambiguous = nlp_result.get('is_ambiguous', False)
+        ambiguous_intents = nlp_result.get('ambiguous_intents', [])
+        needs_clarification = nlp_result.get('needs_clarification', False)
+        
+        logger.debug(
+            f"AI NLP: intent={intent}, confidence={confidence:.2f}, "
+            f"fallback={used_fallback}, ambiguous={is_ambiguous}"
+        )
+        
+        # Handle ambiguous intents - ask clarifying question (Requirement 8.2)
+        if is_ambiguous and ambiguous_intents:
+            clarification = ai_nlp.generate_clarification_question(ambiguous_intents)
+            return clarification
+        
+        # Handle low confidence - provide suggestions (Requirement 8.1, 8.3)
+        if needs_clarification and confidence < ai_nlp.config.confidence_threshold:
+            suggestions = ai_nlp.generate_low_confidence_suggestions()
+            return suggestions
+        
+        # Handle topic change if conversation context exists
+        if conversation_context:
+            if conversation_context.detect_topic_change(intent):
+                conversation_context.clear()
+                logger.debug(f"Topic change detected, cleared context")
+        
+        perception = {
+            'intent': intent,
+            'raw_input': user_input,
+            'processed_input': processed_text,
+            'user_context': user_context,
+            'confidence': confidence,
+            'used_fallback': used_fallback,
+            'all_intent_scores': all_intent_scores,
+            **entities
+        }
+    else:
+        # Fallback to original keyword-based NLP
+        processed_text = nlp.preprocess_text(user_input)
+        intent = nlp.classify_intent(processed_text)
+        entities = nlp.extract_entities(processed_text)
+        
+        perception = {
+            'intent': intent,
+            'raw_input': user_input,
+            'processed_input': processed_text,
+            'user_context': user_context,
+            'confidence': 0.5,  # Default confidence for keyword matching
+            'used_fallback': True,
+            **entities
+        }
     
     # Reasoning phase
     rule = inference_engine.infer(perception)
     
     # Action phase
     if not rule:
-        return ("I'm not sure I understood that correctly.\n\n"
-                "I can help you with:\n"
-                "  • Order status (provide order number)\n"
-                "  • Return policy\n"
-                "  • Product recommendations\n"
-                "  • General inquiries\n\n"
-                "Could you please rephrase your question?")
+        # No rule matched - provide helpful suggestions (Requirement 8.3)
+        if ai_nlp is not None:
+            return ai_nlp.generate_low_confidence_suggestions()
+        else:
+            return ("I'm not sure I understood that correctly.\n\n"
+                    "I can help you with:\n"
+                    "  • Order status (provide order number)\n"
+                    "  • Return policy\n"
+                    "  • Product recommendations\n"
+                    "  • General inquiries\n\n"
+                    "Could you please rephrase your question?")
     
     action = rule['action']
     response = execute_action(action, perception)
+    
+    # Update conversation context if available
+    if conversation_context:
+        conversation_context.add_exchange(
+            user_input=user_input,
+            intent=perception['intent'],
+            entities=entities if ai_nlp else perception,
+            response=response
+        )
+    
     return response
 
 
@@ -93,7 +187,9 @@ def execute_action(action, perception):
         'greet_user': handle_greet,
         'get_warranty_info': handle_warranty_info,
         'get_payment_info': handle_payment_info,
-        'handle_cancellation': handle_cancellation
+        'handle_cancellation': handle_cancellation,
+        'get_order_history': handle_order_history,
+        'get_user_profile': handle_user_profile
     }
     
     handler = action_handlers.get(action)
@@ -103,23 +199,41 @@ def execute_action(action, perception):
 
 
 def handle_order_status(perception):
+    """
+    Handle order status queries with AI-extracted entities.
+    
+    Supports flexible order queries:
+    - "what's the status of ORD12345"
+    - "where's my order ORD12345"
+    - "track my package ORD12345"
+    
+    Uses Knowledge Base to query PostgreSQL database.
+    
+    Requirements: 2.2, 3.2, 5.4
+    """
     order_id = perception.get('order_id')
     user_context = perception.get('user_context', {'role': 'guest'})
     user_role = user_context.get('role', 'guest')
     user_id = user_context.get('user_id')
     
+    # If no order_id provided, check if user is authenticated and can see their orders
+    if not order_id:
+        if user_id:
+            # Authenticated user - offer to show their recent orders
+            return ("I'd be happy to check your order status!\n\n"
+                    "Please provide your order number (format: ORD12345), "
+                    "or ask me to 'show my orders' to see your recent orders.")
+        else:
+            return handle_request_order_id(perception)
+    
+    # Query order from database
     order = kb.get_order(order_id)
     
     if order:
-        # Role-based access check
-        # For now, we allow all roles to view orders by ID
-        # In a full implementation, orders would be linked to user_id
-        # and customers would only see their own orders
-        
         product = kb.get_product(order['product_id'])
         product_name = product['name'] if product else "your item"
         
-        response = f"Order Status for {order_id}:\n\n"
+        response = f"📦 Order Status for {order_id}:\n\n"
         response += f"Product: {product_name}\n"
         response += f"Status: {order['status']}\n"
         response += f"Order Date: {order['order_date']}\n"
@@ -129,17 +243,30 @@ def handle_order_status(perception):
             if order.get('tracking_number'):
                 response += f"Tracking Number: {order['tracking_number']}\n"
         
+        response += f"Quantity: {order['quantity']}\n"
         response += f"Total: ${order['total']:.2f}"
+        
+        # Add status-specific helpful information
+        if order['status'] == 'Processing':
+            response += "\n\n💡 Your order is being prepared for shipment."
+        elif order['status'] == 'Shipped':
+            response += "\n\n🚚 Your order is on its way!"
+        elif order['status'] == 'Delivered':
+            response += "\n\n✅ Your order has been delivered."
+        elif order['status'] == 'Cancelled':
+            response += "\n\n❌ This order has been cancelled."
         
         # Add personalized message for authenticated users
         if user_role == 'customer' and user_id:
             response += "\n\nAs a registered customer, your chat history is saved."
         elif user_role == 'admin':
-            response += "\n\n Admin access: Full order details available."
+            response += "\n\n🔧 Admin access: Full order details available."
         
         return response
     else:
-        return f"I couldn't find order {order_id}. Please check the order number and try again."
+        return (f"I couldn't find order {order_id}.\n\n"
+                "Please check the order number and try again. "
+                "Order numbers are in the format ORD12345.")
 
 
 def handle_request_order_id(perception):
@@ -188,22 +315,102 @@ def handle_product_returnability(perception):
 
 
 def handle_recommend_products(perception):
+    """
+    Handle product recommendation requests with AI-extracted entities.
+    
+    Supports natural language queries like:
+    - "show me wireless headphones under $100"
+    - "find electronics with bluetooth"
+    - "recommend sports equipment"
+    
+    Uses Knowledge Base to query PostgreSQL database.
+    
+    Requirements: 2.2, 2.4, 5.4
+    """
     category = perception.get('category')
     max_price = perception.get('max_price')
+    min_price = perception.get('min_price')
+    features = perception.get('features', [])
+    product_name = perception.get('product_name')
     
-    products = kb.search_products(category=category, max_price=max_price)
+    # Try advanced search if we have name or features
+    if product_name or features:
+        # Use advanced search with name/feature matching
+        feature_query = features[0] if features else None
+        products = kb.search_products_advanced(
+            name=product_name,
+            feature=feature_query,
+            category=category
+        )
+        
+        # Apply price filters manually if needed
+        if max_price is not None:
+            products = [p for p in products if p['price'] <= max_price]
+        if min_price is not None:
+            products = [p for p in products if p['price'] >= min_price]
+    else:
+        # Use basic search with category and price
+        products = kb.search_products(category=category, max_price=max_price)
+        
+        # Apply min_price filter if specified
+        if min_price is not None:
+            products = [p for p in products if p['price'] >= min_price]
     
     if not products:
-        return "I couldn't find products matching your criteria."
+        # Provide helpful message when no products found
+        criteria_parts = []
+        if category:
+            criteria_parts.append(f"category '{category}'")
+        if product_name:
+            criteria_parts.append(f"name containing '{product_name}'")
+        if features:
+            criteria_parts.append(f"features: {', '.join(features)}")
+        if max_price:
+            criteria_parts.append(f"under ${max_price:.2f}")
+        if min_price:
+            criteria_parts.append(f"over ${min_price:.2f}")
+        
+        criteria_str = ", ".join(criteria_parts) if criteria_parts else "your criteria"
+        
+        return (f"I couldn't find products matching {criteria_str}.\n\n"
+                "Try:\n"
+                "  • Broadening your search criteria\n"
+                "  • Checking a different category\n"
+                "  • Adjusting your price range")
     
     products = products[:5]
     
-    response = "Product Recommendations:\n\n"
+    # Build response header based on search criteria
+    header_parts = []
+    if category:
+        header_parts.append(f"in {category}")
+    if product_name:
+        header_parts.append(f"matching '{product_name}'")
+    if features:
+        header_parts.append(f"with {', '.join(features)}")
+    if max_price:
+        header_parts.append(f"under ${max_price:.2f}")
+    if min_price:
+        header_parts.append(f"over ${min_price:.2f}")
+    
+    header = "Product Recommendations"
+    if header_parts:
+        header += f" ({' '.join(header_parts)})"
+    header += ":\n\n"
+    
+    response = header
     for i, product in enumerate(products, 1):
         response += f"{i}. {product['name']} - ${product['price']:.2f}\n"
         response += f"   Category: {product['category']}\n"
+        
+        # Show features if available
+        if product.get('features'):
+            feature_list = product['features']
+            if isinstance(feature_list, list) and feature_list:
+                response += f"   Features: {', '.join(feature_list[:3])}\n"
+        
         if product['stock'] > 0:
-            response += f"   ✅ In Stock\n"
+            response += f"   ✅ In Stock ({product['stock']} available)\n"
         else:
             response += f"   ❌ Out of Stock\n"
         response += "\n"
@@ -212,17 +419,71 @@ def handle_recommend_products(perception):
 
 
 def handle_product_info(perception):
-    product_id = perception.get('product_id')
-    product = kb.get_product(product_id)
+    """
+    Handle product information requests with AI-extracted entities.
     
-    if product:
-        response = f" {product['name']}\n\n"
-        response += f"Price: ${product['price']:.2f}\n"
-        response += f"Category: {product['category']}\n"
-        response += f"Stock: {product['stock']} available\n"
-        return response
+    Supports queries like:
+    - "tell me about P001"
+    - "what's the price of P002"
+    - "product details for P003"
+    
+    Uses Knowledge Base to query PostgreSQL database.
+    
+    Requirements: 2.2, 5.4
+    """
+    product_id = perception.get('product_id')
+    product_name = perception.get('product_name')
+    
+    # Try to find product by ID first
+    if product_id:
+        product = kb.get_product(product_id)
+        if product:
+            return _format_product_details(product)
+    
+    # If no product_id or not found, try searching by name
+    if product_name:
+        products = kb.search_products_advanced(name=product_name)
+        if products:
+            if len(products) == 1:
+                return _format_product_details(products[0])
+            else:
+                # Multiple matches - show list
+                response = f"I found {len(products)} products matching '{product_name}':\n\n"
+                for i, p in enumerate(products[:5], 1):
+                    response += f"{i}. {p['name']} ({p['id']}) - ${p['price']:.2f}\n"
+                response += "\nPlease specify a product ID for more details."
+                return response
+    
+    return ("I couldn't find that product.\n\n"
+            "Please provide a product ID (format: P001) or product name.")
+
+
+def _format_product_details(product):
+    """Format product details for display."""
+    response = f"📦 {product['name']}\n\n"
+    response += f"Product ID: {product['id']}\n"
+    response += f"Price: ${product['price']:.2f}\n"
+    response += f"Category: {product['category']}\n"
+    
+    # Show features if available
+    if product.get('features'):
+        features = product['features']
+        if isinstance(features, list) and features:
+            response += f"Features: {', '.join(features)}\n"
+    
+    # Stock status
+    if product['stock'] > 0:
+        response += f"Stock: ✅ {product['stock']} available\n"
     else:
-        return "I couldn't find that product."
+        response += f"Stock: ❌ Out of Stock\n"
+    
+    # Return policy
+    if product.get('returnable'):
+        response += f"Returns: ✅ Returnable within {product.get('return_window', 30)} days\n"
+    else:
+        response += f"Returns: ❌ Non-returnable\n"
+    
+    return response
 
 
 def handle_shipping_policy(perception):
@@ -298,6 +559,129 @@ def handle_cancellation(perception):
         return "To cancel an order, please provide your order number (format: ORD12345)."
 
 
+def handle_order_history(perception):
+    """
+    Handle order history queries with AI NLP.
+    
+    Supports natural language queries like:
+    - "what did I order last week"
+    - "show my orders"
+    - "my order history"
+    - "what have I purchased"
+    
+    Enforces authentication requirement - user must be logged in.
+    Queries database filtered by user_id.
+    
+    Requirements: 3.1, 3.2, 3.4
+    """
+    user_context = perception.get('user_context', {'role': 'guest'})
+    user_id = user_context.get('user_id')
+    
+    # Enforce authentication requirement (Requirement 3.4)
+    if user_id is None:
+        return ("🔒 Please log in to view your order history.\n\n"
+                "Once logged in, you can ask me:\n"
+                "  • 'Show my orders'\n"
+                "  • 'What did I order recently?'\n"
+                "  • 'My order history'")
+    
+    # Query orders from database filtered by user_id (Requirement 3.2)
+    orders = kb.get_user_orders(user_id)
+    
+    if orders is None:
+        return ("🔒 Please log in to view your order history.\n\n"
+                "Once logged in, you can ask me:\n"
+                "  • 'Show my orders'\n"
+                "  • 'What did I order recently?'\n"
+                "  • 'My order history'")
+    
+    if not orders:
+        return ("📦 You don't have any orders yet.\n\n"
+                "Start shopping and your order history will appear here!")
+    
+    # Format order history response
+    response = f"📦 Your Order History ({len(orders)} order{'s' if len(orders) != 1 else ''}):\n\n"
+    
+    for i, order in enumerate(orders, 1):
+        # Get product details for each order
+        product = kb.get_product(order['product_id'])
+        product_name = product['name'] if product else order['product_id']
+        
+        response += f"{i}. Order {order['id']}\n"
+        response += f"   Product: {product_name}\n"
+        response += f"   Status: {order['status']}\n"
+        response += f"   Date: {order['order_date']}\n"
+        response += f"   Total: ${order['total']:.2f}\n"
+        
+        # Add status indicator
+        if order['status'] == 'Processing':
+            response += "   📋 Being prepared\n"
+        elif order['status'] == 'Shipped':
+            response += f"   🚚 On the way (Delivery: {order['delivery_date']})\n"
+        elif order['status'] == 'Delivered':
+            response += "   ✅ Delivered\n"
+        elif order['status'] == 'Cancelled':
+            response += "   ❌ Cancelled\n"
+        
+        response += "\n"
+    
+    response += "Need details on a specific order? Just provide the order number!"
+    
+    return response
+
+
+def handle_user_profile(perception):
+    """
+    Handle user profile queries with AI NLP.
+    
+    Supports natural language queries like:
+    - "show my profile"
+    - "what's my account info"
+    - "my account details"
+    
+    Enforces authentication requirement - user must be logged in.
+    Queries database for user profile.
+    
+    Requirements: 9.1, 9.2, 9.3
+    """
+    user_context = perception.get('user_context', {'role': 'guest'})
+    user_id = user_context.get('user_id')
+    
+    # Enforce authentication requirement (Requirement 9.3)
+    if user_id is None:
+        return ("🔒 Please log in to view your profile.\n\n"
+                "Once logged in, you can ask me:\n"
+                "  • 'Show my profile'\n"
+                "  • 'What's my account info?'\n"
+                "  • 'My account details'")
+    
+    # Query user profile from database (Requirement 9.2)
+    profile = kb.get_user_profile(user_id)
+    
+    if profile is None:
+        return ("🔒 Please log in to view your profile.\n\n"
+                "Once logged in, you can ask me:\n"
+                "  • 'Show my profile'\n"
+                "  • 'What's my account info?'\n"
+                "  • 'My account details'")
+    
+    # Format profile response
+    response = "👤 Your Profile\n\n"
+    response += f"Name: {profile['name']}\n"
+    response += f"Email: {profile['email']}\n"
+    response += f"Account Type: {profile['role'].title()}\n"
+    
+    if profile.get('created_at'):
+        response += f"Member Since: {profile['created_at'][:10]}\n"
+    
+    if profile.get('last_login'):
+        response += f"Last Login: {profile['last_login'][:10]}\n"
+    
+    response += "\nNeed to update your information? Contact support@eshop.com"
+    
+    return response
+
+
 @app.route('/api/chat', methods=['POST'])
 def chat():
     """
@@ -305,7 +689,7 @@ def chat():
     For authenticated users, stores messages in database and provides
     role-based access to information.
     
-    Request body: {"message": "user message"}
+    Request body: {"message": "user message", "session_id": "optional session id"}
     Response: {"response": "chatbot response"}
     """
     try:
@@ -315,6 +699,7 @@ def chat():
             return jsonify({'error': 'Request body must be JSON'}), 400
         
         message = data.get('message', '').strip()
+        session_id = data.get('session_id', 'default')
         
         if not message:
             return jsonify({'error': 'Message cannot be empty'}), 400
@@ -328,8 +713,22 @@ def chat():
             'role': user_role if user_role else 'guest'
         }
         
-        # Process message with user context
-        response = process_message(message, user_context=user_context)
+        # Get or create conversation context for this session
+        context_key = f"{user_id or 'guest'}_{session_id}"
+        if context_key not in conversation_contexts:
+            conversation_contexts[context_key] = ConversationContext()
+            # Set auth state if authenticated
+            if user_id:
+                conversation_contexts[context_key].set_auth_state(user_context)
+        
+        conversation_context = conversation_contexts[context_key]
+        
+        # Process message with user context and conversation context
+        response = process_message(
+            message, 
+            user_context=user_context,
+            conversation_context=conversation_context
+        )
         
         # Save messages to database for authenticated users
         if user_id:

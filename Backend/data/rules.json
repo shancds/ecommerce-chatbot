@@ -124,6 +124,47 @@
       "action": "handle_cancellation",
       "priority": 9,
       "response_template": "I can help you with order cancellation."
+    },
+    {
+      "id": "R013",
+      "name": "Order History Request",
+      "condition": {
+        "intent": "order_history"
+      },
+      "action": "get_order_history",
+      "priority": 8,
+      "response_template": "Here's your order history."
+    },
+    {
+      "id": "R014",
+      "name": "User Profile Request",
+      "condition": {
+        "intent": "user_profile"
+      },
+      "action": "get_user_profile",
+      "priority": 8,
+      "response_template": "Here's your profile information."
+    },
+    {
+      "id": "R015",
+      "name": "Product Search",
+      "condition": {
+        "intent": "product_search"
+      },
+      "action": "recommend_products",
+      "priority": 8,
+      "response_template": "Here are the products matching your search."
+    },
+    {
+      "id": "R016",
+      "name": "Product Information without ID",
+      "condition": {
+        "intent": "product_info",
+        "has_product_id": false
+      },
+      "action": "recommend_products",
+      "priority": 6,
+      "response_template": "Let me help you find products."
     }
   ]
 }
