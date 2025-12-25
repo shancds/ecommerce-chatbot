@@ -375,7 +375,7 @@ class CustomerSupportAgent:
     
     def _handle_unknown(self):
         """Handle unknown intent or action"""
-        return ("I'm not sure I understood that correctly. 🤔\n\n"
+        return ("I'm ai assistant for your service. 🤔\n\n"
                 "I can help you with:\n"
                 "  • Order status (provide order number)\n"
                 "  • Return policy\n"

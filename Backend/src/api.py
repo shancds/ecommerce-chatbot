@@ -67,7 +67,7 @@ def process_message(user_input, user_context=None):
     
     # Action phase
     if not rule:
-        return ("I'm not sure I understood that correctly.\n\n"
+        return ("I'm AI assistant for your service.\n\n"
                 "I can help you with:\n"
                 "  • Order status (provide order number)\n"
                 "  • Return policy\n"
@@ -298,6 +298,123 @@ def handle_cancellation(perception):
             return f"I couldn't find order {order_id}."
     else:
         return "To cancel an order, please provide your order number (format: ORD12345)."
+def handle_cancellation(perception):
+    """Handle order cancellation request."""
+    order_id = perception.get('order_id')
+    
+    if order_id:
+        order = kb.get_order(order_id)
+        if order:
+            if order['status'] == 'Processing':
+                return f"I can help you cancel order {order_id}. Please contact support@eshop.com."
+            elif order['status'] == 'Shipped':
+                return f"Order {order_id} has already shipped. You can refuse delivery or initiate a return."
+            elif order['status'] == 'Delivered':
+                return f"Order {order_id} has been delivered. Please initiate a return if needed."
+            else:
+                return f"Order {order_id} is already {order['status'].lower()}."
+        else:
+            return f"I couldn't find order {order_id}."
+    else:
+        return "To cancel an order, please provide your order number (format: ORD12345)."
+
+
+def handle_order_history(perception):
+    
+    user_context = perception.get('user_context', {'role': 'guest'})
+    user_id = user_context.get('user_id')
+    
+    # Enforce authentication requirement (Requirement 3.4)
+    if user_id is None:
+        return ("🔒 Please log in to view your order history.\n\n"
+                "Once logged in, you can ask me:\n"
+                "  • 'Show my orders'\n"
+                "  • 'What did I order recently?'\n"
+                "  • 'My order history'")
+    
+    # Query orders from database filtered by user_id (Requirement 3.2)
+    orders = kb.get_user_orders(user_id)
+    
+    if orders is None:
+        return ("🔒 Please log in to view your order history.\n\n"
+                "Once logged in, you can ask me:\n"
+                "  • 'Show my orders'\n"
+                "  • 'What did I order recently?'\n"
+                "  • 'My order history'")
+    
+    if not orders:
+        return ("📦 You don't have any orders yet.\n\n"
+                "Start shopping and your order history will appear here!")
+    
+    # Format order history response
+    response = f"📦 Your Order History ({len(orders)} order{'s' if len(orders) != 1 else ''}):\n\n"
+    
+    for i, order in enumerate(orders, 1):
+        # Get product details for each order
+        product = kb.get_product(order['product_id'])
+        product_name = product['name'] if product else order['product_id']
+        
+        response += f"{i}. Order {order['id']}\n"
+        response += f"   Product: {product_name}\n"
+        response += f"   Status: {order['status']}\n"
+        response += f"   Date: {order['order_date']}\n"
+        response += f"   Total: ${order['total']:.2f}\n"
+        
+        # Add status indicator
+        if order['status'] == 'Processing':
+            response += "   📋 Being prepared\n"
+        elif order['status'] == 'Shipped':
+            response += f"   🚚 On the way (Delivery: {order['delivery_date']})\n"
+        elif order['status'] == 'Delivered':
+            response += "   ✅ Delivered\n"
+        elif order['status'] == 'Cancelled':
+            response += "   ❌ Cancelled\n"
+        
+        response += "\n"
+    
+    response += "Need details on a specific order? Just provide the order number!"
+    
+    return response
+
+
+def handle_user_profile(perception):
+    
+    user_context = perception.get('user_context', {'role': 'guest'})
+    user_id = user_context.get('user_id')
+    
+    # Enforce authentication requirement (Requirement 9.3)
+    if user_id is None:
+        return ("🔒 Please log in to view your profile.\n\n"
+                "Once logged in, you can ask me:\n"
+                "  • 'Show my profile'\n"
+                "  • 'What's my account info?'\n"
+                "  • 'My account details'")
+    
+    # Query user profile from database (Requirement 9.2)
+    profile = kb.get_user_profile(user_id)
+    
+    if profile is None:
+        return ("🔒 Please log in to view your profile.\n\n"
+                "Once logged in, you can ask me:\n"
+                "  • 'Show my profile'\n"
+                "  • 'What's my account info?'\n"
+                "  • 'My account details'")
+    
+    # Format profile response
+    response = "👤 Your Profile\n\n"
+    response += f"Name: {profile['name']}\n"
+    response += f"Email: {profile['email']}\n"
+    response += f"Account Type: {profile['role'].title()}\n"
+    
+    if profile.get('created_at'):
+        response += f"Member Since: {profile['created_at'][:10]}\n"
+    
+    if profile.get('last_login'):
+        response += f"Last Login: {profile['last_login'][:10]}\n"
+    
+    response += "\nNeed to update your information? Contact support@eshop.com"
+    
+    return response
 
 
 @app.route('/api/chat', methods=['POST'])
