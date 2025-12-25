@@ -1,7 +1,7 @@
 """
 Intelligent Agent Module
 Implements autonomous customer support agent
-Demonstrates: Intelligent Agents (Unit 9 - Agent Architecture)
+Demonstrates: Intelligent Agents
 """
 
 from src.knowledge_base import KnowledgeBase
@@ -102,7 +102,10 @@ class CustomerSupportAgent:
             'greet_user': self._greet_user,
             'get_warranty_info': self._get_warranty_info,
             'get_payment_info': self._get_payment_info,
-            'handle_cancellation': self._handle_cancellation
+            'handle_cancellation': self._handle_cancellation,
+            'search_products_advanced': self._search_products_advanced,
+            'get_order_history': self._get_order_history,
+            'get_user_profile': self._get_user_profile
         }
         
         action_method = action_methods.get(action, self._handle_unknown)
@@ -283,6 +286,92 @@ class CustomerSupportAgent:
                 return f"I couldn't find order {order_id}. Please check the order number."
         else:
             return "To cancel an order, please provide your order number (format: ORD12345)."
+    
+    def _search_products_advanced(self, perception):
+        """Search products by name, feature, or category"""
+        # Extract search terms from the processed input
+        search_text = perception.get('processed_input', '')
+        category = perception.get('category')
+        
+        # Try to extract a product name from the search text
+        # Remove common search words
+        search_words = ['search', 'find', 'show', 'products', 'product', 'with', 'for', 'me', 'a', 'an', 'the']
+        words = search_text.lower().split()
+        name_words = [w for w in words if w not in search_words]
+        name_search = ' '.join(name_words) if name_words else None
+        
+        # Search using the advanced method
+        products = self.kb.search_products_advanced(
+            name=name_search,
+            category=category
+        )
+        
+        if not products:
+            return f"🔍 No products found matching '{name_search or search_text}'. Try different search terms or browse by category."
+        
+        response = f"🔍 Search Results for '{name_search or search_text}':\n\n"
+        for i, product in enumerate(products, 1):
+            response += f"{i}. {product['name']} - ${product['price']:.2f}\n"
+            response += f"   Category: {product['category']}\n"
+            if product['features']:
+                response += f"   Features: {', '.join(product['features'][:3])}\n"
+            if product['stock'] > 0:
+                response += f"   ✅ In Stock ({product['stock']} available)\n"
+            else:
+                response += f"   ❌ Out of Stock\n"
+            response += "\n"
+        
+        return response
+    
+    def _get_order_history(self, perception):
+        """Get order history for authenticated user"""
+        user_id = perception.get('user_id')
+        
+        if not user_id:
+            return "🔒 Please log in to view your order history."
+        
+        orders = self.kb.get_user_orders(user_id)
+        
+        if orders is None:
+            return "🔒 Please log in to view your order history."
+        
+        if not orders:
+            return "📦 You don't have any orders yet. Start shopping to see your order history here!"
+        
+        response = "📦 Your Order History:\n\n"
+        for order in orders:
+            product = self.kb.get_product(order['product_id'])
+            product_name = product['name'] if product else order['product_id']
+            
+            response += f"Order {order['id']}:\n"
+            response += f"  Product: {product_name}\n"
+            response += f"  Status: {order['status']}\n"
+            response += f"  Date: {order['order_date']}\n"
+            response += f"  Total: ${order['total']:.2f}\n\n"
+        
+        return response
+    
+    def _get_user_profile(self, perception):
+        """Get user profile information"""
+        user_id = perception.get('user_id')
+        
+        if not user_id:
+            return "🔒 Please log in to view your profile."
+        
+        profile = self.kb.get_user_profile(user_id)
+        
+        if not profile:
+            return "🔒 Please log in to view your profile."
+        
+        response = "👤 Your Profile:\n\n"
+        response += f"Name: {profile['name']}\n"
+        response += f"Email: {profile['email']}\n"
+        response += f"Role: {profile['role'].title()}\n"
+        response += f"Member Since: {profile['created_at']}\n"
+        if profile['last_login']:
+            response += f"Last Login: {profile['last_login']}\n"
+        
+        return response
     
     def _handle_unknown(self):
         """Handle unknown intent or action"""

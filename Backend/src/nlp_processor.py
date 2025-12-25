@@ -12,13 +12,16 @@ class NLPProcessor:
         self.intent_keywords = {
             'greeting': ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'greetings'],
             'order_status': ['order', 'track', 'status', 'where', 'delivery', 'shipped', 'tracking', 'when will'],
+            'order_history': ['my orders', 'order history', 'past orders', 'previous orders', 'purchases', 'bought'],
             'return_policy': ['return', 'refund', 'exchange', 'send back', 'policy', 'money back'],
             'product_recommendation': ['recommend', 'suggest', 'looking for', 'need', 'want to buy', 'show me', 'find'],
+            'product_search': ['search', 'find product', 'products with', 'products named', 'category', 'feature'],
             'product_info': ['tell me about', 'details', 'information', 'price', 'features', 'specs', 'what is'],
             'shipping_info': ['shipping', 'delivery time', 'how long', 'ship', 'deliver'],
             'warranty_info': ['warranty', 'guarantee', 'coverage', 'protection'],
             'payment_info': ['payment', 'pay', 'credit card', 'paypal', 'how to pay'],
             'cancel_order': ['cancel', 'cancellation', 'stop order', 'dont want'],
+            'user_profile': ['my profile', 'my account', 'account details', 'profile info', 'my information'],
             'general_inquiry': ['help', 'support', 'question', 'info', 'tell me']
         }
     

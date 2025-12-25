@@ -1,7 +1,7 @@
 """
 Knowledge Base Module
 Implements production system for knowledge representation
-Demonstrates: Knowledge Representation (Unit 4 - Production Systems)
+Demonstrates: Knowledge Representation
 """
 
 import json
@@ -10,20 +10,13 @@ from typing import Optional, List, Dict, Any
 
 class KnowledgeBase:
     """
-    Represents the knowledge base using production system approach.
-    Components:
     - Facts (Working Memory): Current conversation state
     - Rules (Production Memory): IF-THEN rules
     - Data: Products, orders, policies (from PostgreSQL)
     """
     
     def __init__(self, db=None):
-        """
-        Initialize with database connection.
         
-        Args:
-            db: Database instance for PostgreSQL queries
-        """
         self.db = db
         self.facts = {}  # Working memory - stores current state
         
@@ -105,7 +98,7 @@ class KnowledgeBase:
         Query all rules from database.
         
         Returns:
-            List of rule dictionaries
+            List of rule dictionaries, limited to 10 results
         """
         if not self.db:
             return []
@@ -114,6 +107,7 @@ class KnowledgeBase:
             SELECT id, name, condition, action, priority, response_template
             FROM rules
             ORDER BY priority DESC
+            LIMIT 10
         """
         results = self.db.execute_query(query)
         
@@ -263,7 +257,7 @@ class KnowledgeBase:
             keyword_pattern = f"%{keyword}%"
             params.extend([keyword_pattern, keyword_pattern, keyword_pattern])
         
-        query += " ORDER BY name"
+        query += " ORDER BY name LIMIT 10"
         
         results = self.db.execute_query(query, tuple(params) if params else None)
         
@@ -292,3 +286,143 @@ class KnowledgeBase:
     def clear_facts(self) -> None:
         """Clear working memory."""
         self.facts = {}
+
+    def search_products_advanced(
+        self, 
+        name: str = None, 
+        feature: str = None, 
+        category: str = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Search products by name, feature, or category with AND logic.
+        
+        Args:
+            name: Search term to match in product name (case-insensitive)
+            feature: Search term to match in product features (case-insensitive)
+            category: Category to filter by (case-insensitive)
+            
+        Returns:
+            List of matching products, limited to 10 results
+        """
+        if not self.db:
+            return []
+        
+        # Build dynamic query with filters using AND logic
+        query = """
+            SELECT id, name, price, category, features, 
+                   returnable, return_window, stock
+            FROM products
+            WHERE 1=1
+        """
+        params = []
+        
+        if name:
+            query += " AND name ILIKE %s"
+            params.append(f"%{name}%")
+        
+        if feature:
+            query += """ AND EXISTS (
+                SELECT 1 FROM jsonb_array_elements_text(features::jsonb) AS f
+                WHERE f ILIKE %s
+            )"""
+            params.append(f"%{feature}%")
+        
+        if category:
+            query += " AND LOWER(category) = LOWER(%s)"
+            params.append(category)
+        
+        query += " ORDER BY id LIMIT 10"
+        
+        results = self.db.execute_query(query, tuple(params) if params else None)
+        
+        products = []
+        for row in results:
+            products.append({
+                'id': row['id'],
+                'name': row['name'],
+                'price': float(row['price']),
+                'category': row['category'],
+                'features': row['features'] if row['features'] else [],
+                'returnable': row['returnable'],
+                'return_window': row['return_window'],
+                'stock': row['stock']
+            })
+        return products
+
+    def get_user_orders(self, user_id: int) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get orders for an authenticated user.
+        
+        Args:
+            user_id: The authenticated user's ID
+            
+        Returns:
+            List of orders (max 10, newest first) or None if user_id is None
+        """
+        if user_id is None:
+            return None
+            
+        if not self.db:
+            return []
+            
+        query = """
+            SELECT id, product_id, customer_id, user_id, status, order_date,
+                   delivery_date, tracking_number, quantity, total
+            FROM orders
+            WHERE user_id = %s
+            ORDER BY order_date DESC
+            LIMIT 10
+        """
+        results = self.db.execute_query(query, (user_id,))
+        
+        orders = []
+        for row in results:
+            orders.append({
+                'id': row['id'],
+                'product_id': row['product_id'],
+                'customer_id': row['customer_id'],
+                'user_id': row['user_id'],
+                'status': row['status'],
+                'order_date': str(row['order_date']) if row['order_date'] else None,
+                'delivery_date': str(row['delivery_date']) if row['delivery_date'] else None,
+                'tracking_number': row['tracking_number'],
+                'quantity': row['quantity'],
+                'total': float(row['total'])
+            })
+        return orders
+
+    def get_user_profile(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Get profile information for an authenticated user.
+        
+        Args:
+            user_id: The authenticated user's ID
+            
+        Returns:
+            User profile dict or None if user_id is None or not found
+        """
+        if user_id is None:
+            return None
+            
+        if not self.db:
+            return None
+            
+        query = """
+            SELECT id, email, name, role, created_at, last_login
+            FROM users
+            WHERE id = %s
+        """
+        results = self.db.execute_query(query, (user_id,))
+        
+        if not results:
+            return None
+            
+        row = results[0]
+        return {
+            'id': row['id'],
+            'email': row['email'],
+            'name': row['name'],
+            'role': row['role'],
+            'created_at': str(row['created_at']) if row['created_at'] else None,
+            'last_login': str(row['last_login']) if row['last_login'] else None
+        }

@@ -44,6 +44,7 @@ CREATE TABLE orders (
     id VARCHAR(10) PRIMARY KEY,
     product_id VARCHAR(10) NOT NULL REFERENCES products(id),
     customer_id VARCHAR(10) NOT NULL,
+    user_id INTEGER REFERENCES users(id),
     status VARCHAR(50) NOT NULL,
     order_date DATE NOT NULL,
     delivery_date DATE,
@@ -73,6 +74,7 @@ CREATE TABLE rules (
 CREATE INDEX idx_products_category ON products(category);
 CREATE INDEX idx_products_price ON products(price);
 CREATE INDEX idx_orders_customer_id ON orders(customer_id);
+CREATE INDEX idx_orders_user_id ON orders(user_id);
 CREATE INDEX idx_orders_status ON orders(status);
 CREATE INDEX idx_rules_priority ON rules(priority DESC);
 CREATE INDEX idx_users_email ON users(email);

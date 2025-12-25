@@ -33,18 +33,20 @@ INSERT INTO products (id, name, price, category, features, returnable, return_wi
 ('P014', 'Personalized Mug', 18.99, 'Home', '["Custom text", "Dishwasher safe", "11oz capacity", "Ceramic"]', false, 0, 67),
 ('P015', 'USB-C Cable', 12.99, 'Electronics', '["Fast charging", "6ft length", "Braided nylon", "Universal"]', true, 30, 234);
 
--- Insert Orders
-INSERT INTO orders (id, product_id, customer_id, status, order_date, delivery_date, tracking_number, quantity, total) VALUES
-('ORD12345', 'P001', 'C001', 'Shipped', '2024-11-01', '2024-11-15', 'TRK789456123', 1, 79.99),
-('ORD12346', 'P002', 'C002', 'Processing', '2024-11-10', '2024-11-20', 'TRK789456124', 1, 199.99),
-('ORD12347', 'P003', 'C001', 'Delivered', '2024-10-25', '2024-11-05', 'TRK789456125', 2, 179.98),
-('ORD12348', 'P005', 'C003', 'Shipped', '2024-11-08', '2024-11-18', 'TRK789456126', 1, 149.99),
-('ORD12349', 'P007', 'C004', 'Processing', '2024-11-12', '2024-11-22', 'TRK789456127', 1, 59.99),
-('ORD12350', 'P011', 'C002', 'Delivered', '2024-10-20', '2024-10-30', 'TRK789456128', 1, 69.99),
-('ORD12351', 'P008', 'C005', 'Shipped', '2024-11-09', '2024-11-19', 'TRK789456129', 3, 74.97),
-('ORD12352', 'P004', 'C003', 'Cancelled', '2024-11-05', NULL, NULL, 1, 29.99),
-('ORD12353', 'P012', 'C006', 'Processing', '2024-11-11', '2024-11-21', 'TRK789456130', 2, 69.98),
-('ORD12354', 'P006', 'C001', 'Delivered', '2024-10-28', '2024-11-07', 'TRK789456131', 1, 39.99);
+-- Insert Orders (with user_id linking to authenticated users)
+-- user_id 1 = customer@example.com (John Customer)
+-- user_id 3 = jane@example.com (Jane Smith)
+INSERT INTO orders (id, product_id, customer_id, user_id, status, order_date, delivery_date, tracking_number, quantity, total) VALUES
+('ORD12345', 'P001', 'C001', 1, 'Shipped', '2024-11-01', '2024-11-15', 'TRK789456123', 1, 79.99),
+('ORD12346', 'P002', 'C002', 3, 'Processing', '2024-11-10', '2024-11-20', 'TRK789456124', 1, 199.99),
+('ORD12347', 'P003', 'C001', 1, 'Delivered', '2024-10-25', '2024-11-05', 'TRK789456125', 2, 179.98),
+('ORD12348', 'P005', 'C003', 3, 'Shipped', '2024-11-08', '2024-11-18', 'TRK789456126', 1, 149.99),
+('ORD12349', 'P007', 'C004', 1, 'Processing', '2024-11-12', '2024-11-22', 'TRK789456127', 1, 59.99),
+('ORD12350', 'P011', 'C002', 3, 'Delivered', '2024-10-20', '2024-10-30', 'TRK789456128', 1, 69.99),
+('ORD12351', 'P008', 'C005', 1, 'Shipped', '2024-11-09', '2024-11-19', 'TRK789456129', 3, 74.97),
+('ORD12352', 'P004', 'C003', 3, 'Cancelled', '2024-11-05', NULL, NULL, 1, 29.99),
+('ORD12353', 'P012', 'C006', 1, 'Processing', '2024-11-11', '2024-11-21', 'TRK789456130', 2, 69.98),
+('ORD12354', 'P006', 'C001', 1, 'Delivered', '2024-10-28', '2024-11-07', 'TRK789456131', 1, 39.99);
 
 
 -- Insert Policies
@@ -113,4 +115,7 @@ INSERT INTO rules (id, name, condition, action, priority, response_template) VAL
 ('R009', 'Greeting', '{"intent": "greeting"}', 'greet_user', 6, 'Hello! Welcome to E-Shop customer support. How can I assist you today?'),
 ('R010', 'Warranty Information', '{"intent": "warranty_info"}', 'get_warranty_info', 7, 'Let me provide you with warranty information.'),
 ('R011', 'Payment Methods', '{"intent": "payment_info"}', 'get_payment_info', 6, 'Here''s information about our payment methods.'),
-('R012', 'Cancellation Request', '{"intent": "cancel_order"}', 'handle_cancellation', 9, 'I can help you with order cancellation.');
+('R012', 'Cancellation Request', '{"intent": "cancel_order"}', 'handle_cancellation', 9, 'I can help you with order cancellation.'),
+('R013', 'Product Search', '{"intent": "product_search"}', 'search_products_advanced', 8, 'Here are the products matching your search.'),
+('R014', 'Order History', '{"intent": "order_history"}', 'get_order_history', 8, 'Here is your order history.'),
+('R015', 'User Profile', '{"intent": "user_profile"}', 'get_user_profile', 8, 'Here is your profile information.');
