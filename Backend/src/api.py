@@ -199,18 +199,7 @@ def execute_action(action, perception):
 
 
 def handle_order_status(perception):
-    """
-    Handle order status queries with AI-extracted entities.
     
-    Supports flexible order queries:
-    - "what's the status of ORD12345"
-    - "where's my order ORD12345"
-    - "track my package ORD12345"
-    
-    Uses Knowledge Base to query PostgreSQL database.
-    
-    Requirements: 2.2, 3.2, 5.4
-    """
     order_id = perception.get('order_id')
     user_context = perception.get('user_context', {'role': 'guest'})
     user_role = user_context.get('role', 'guest')
@@ -233,7 +222,7 @@ def handle_order_status(perception):
         product = kb.get_product(order['product_id'])
         product_name = product['name'] if product else "your item"
         
-        response = f"📦 Order Status for {order_id}:\n\n"
+        response = f" Order Status for {order_id}:\n\n"
         response += f"Product: {product_name}\n"
         response += f"Status: {order['status']}\n"
         response += f"Order Date: {order['order_date']}\n"
@@ -248,13 +237,13 @@ def handle_order_status(perception):
         
         # Add status-specific helpful information
         if order['status'] == 'Processing':
-            response += "\n\n💡 Your order is being prepared for shipment."
+            response += "\n\n Your order is being prepared for shipment."
         elif order['status'] == 'Shipped':
-            response += "\n\n🚚 Your order is on its way!"
+            response += "\n\n Your order is on its way!"
         elif order['status'] == 'Delivered':
-            response += "\n\n✅ Your order has been delivered."
+            response += "\n\n Your order has been delivered."
         elif order['status'] == 'Cancelled':
-            response += "\n\n❌ This order has been cancelled."
+            response += "\n\n This order has been cancelled."
         
         # Add personalized message for authenticated users
         if user_role == 'customer' and user_id:
@@ -315,18 +304,7 @@ def handle_product_returnability(perception):
 
 
 def handle_recommend_products(perception):
-    """
-    Handle product recommendation requests with AI-extracted entities.
     
-    Supports natural language queries like:
-    - "show me wireless headphones under $100"
-    - "find electronics with bluetooth"
-    - "recommend sports equipment"
-    
-    Uses Knowledge Base to query PostgreSQL database.
-    
-    Requirements: 2.2, 2.4, 5.4
-    """
     category = perception.get('category')
     max_price = perception.get('max_price')
     min_price = perception.get('min_price')
@@ -419,18 +397,7 @@ def handle_recommend_products(perception):
 
 
 def handle_product_info(perception):
-    """
-    Handle product information requests with AI-extracted entities.
     
-    Supports queries like:
-    - "tell me about P001"
-    - "what's the price of P002"
-    - "product details for P003"
-    
-    Uses Knowledge Base to query PostgreSQL database.
-    
-    Requirements: 2.2, 5.4
-    """
     product_id = perception.get('product_id')
     product_name = perception.get('product_name')
     
