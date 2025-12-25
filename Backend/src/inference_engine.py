@@ -11,16 +11,7 @@ class InferenceEngine:
         self.kb = knowledge_base
     
     def match_rules(self, facts):
-        """
-        Match phase: Find all rules whose conditions match current facts.
-        This implements the first step of forward chaining.
         
-        Args:
-            facts (dict): Current facts from working memory
-            
-        Returns:
-            list: Rules that match the current facts
-        """
         matched_rules = []
         
         for rule in self.kb.get_rules():
@@ -30,17 +21,7 @@ class InferenceEngine:
         return matched_rules
     
     def evaluate_condition(self, condition, facts):
-        """
-        Evaluate if a rule's condition matches the facts.
-        Uses logical AND - all conditions must be satisfied.
         
-        Args:
-            condition (dict): Rule conditions to check
-            facts (dict): Current facts
-            
-        Returns:
-            bool: True if condition matches facts
-        """
         for key, value in condition.items():
             # Check if fact exists
             if key not in facts:
@@ -59,16 +40,7 @@ class InferenceEngine:
         return True
     
     def resolve_conflict(self, matched_rules):
-        """
-        Conflict resolution: Select rule with highest priority.
-        This implements conflict resolution strategy in production systems.
-        
-        Args:
-            matched_rules (list): List of matched rules
-            
-        Returns:
-            dict: Selected rule or None
-        """
+       
         if not matched_rules:
             return None
         
@@ -89,16 +61,7 @@ class InferenceEngine:
         return selected_rule
     
     def explain_inference(self, facts):
-        """
-        Explain the inference process (for demonstration/debugging).
-        Shows which rules matched and why a particular rule was selected.
-        
-        Args:
-            facts (dict): Current facts
-            
-        Returns:
-            dict: Explanation of inference process
-        """
+       
         matched_rules = self.match_rules(facts)
         selected_rule = self.resolve_conflict(matched_rules)
         
