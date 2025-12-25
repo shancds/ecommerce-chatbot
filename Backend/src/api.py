@@ -93,7 +93,9 @@ def execute_action(action, perception):
         'greet_user': handle_greet,
         'get_warranty_info': handle_warranty_info,
         'get_payment_info': handle_payment_info,
-        'handle_cancellation': handle_cancellation
+        'handle_cancellation': handle_cancellation,
+        'get_order_history': handle_order_history,
+        'get_user_profile': handle_user_profile
     }
     
     handler = action_handlers.get(action)
