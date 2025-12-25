@@ -1,0 +1,17 @@
+
+.widget {
+
+  font-family: var(--font-family);
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+}
+
+@media (max-width: 480px) {
+  .widget :global(.panel) {
+    width: calc(100vw - var(--spacing-lg) * 2);
+    height: calc(100vh - var(--spacing-lg) * 2 - var(--chat-bubble-size));
+    max-height: 600px;
+  }
+}

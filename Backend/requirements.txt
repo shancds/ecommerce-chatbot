@@ -1,0 +1,15 @@
+# Flask web framework for REST API
+Flask>=3.0.0
+
+# PostgreSQL adapter for Python
+psycopg2-binary>=2.9.9
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# Property-based testing library
+hypothesis>=6.100.0
+
+# Authentication dependencies
+PyJWT>=2.8.0
+bcrypt>=4.1.0
