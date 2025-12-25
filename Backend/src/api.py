@@ -1,9 +1,3 @@
-"""
-REST API Module
-Flask application exposing chatbot endpoints.
-Implements: Requirements 4.1, 4.2, 4.3
-"""
-
 import os
 import logging
 from datetime import datetime, timedelta, timezone
@@ -52,16 +46,6 @@ def init_app():
 
 
 def process_message(user_input, user_context=None):
-    """
-    Process user message through the chatbot agent.
-    
-    Args:
-        user_input: User's message string
-        user_context: Optional dict with user_id and role for personalization
-        
-    Returns:
-        Chatbot response string
-    """
     if user_context is None:
         user_context = {'user_id': None, 'role': 'guest'}
     
@@ -83,7 +67,7 @@ def process_message(user_input, user_context=None):
     
     # Action phase
     if not rule:
-        return ("I'm not sure I understood that correctly. 🤔\n\n"
+        return ("I'm not sure I understood that correctly.\n\n"
                 "I can help you with:\n"
                 "  • Order status (provide order number)\n"
                 "  • Return policy\n"
@@ -97,7 +81,6 @@ def process_message(user_input, user_context=None):
 
 
 def execute_action(action, perception):
-    """Execute the action and return response."""
     action_handlers = {
         'get_order_status': handle_order_status,
         'request_order_id': handle_request_order_id,
@@ -120,15 +103,6 @@ def execute_action(action, perception):
 
 
 def handle_order_status(perception):
-    """
-    Get order status from knowledge base.
-    Implements role-based access control:
-    - Guests: Can query any order by ID (basic inquiry)
-    - Customers: Can query orders using their user ID context
-    - Admins: Can access all customer orders
-    
-    Implements: Requirements 5.2, 5.3, 5.4
-    """
     order_id = perception.get('order_id')
     user_context = perception.get('user_context', {'role': 'guest'})
     user_role = user_context.get('role', 'guest')
@@ -145,7 +119,7 @@ def handle_order_status(perception):
         product = kb.get_product(order['product_id'])
         product_name = product['name'] if product else "your item"
         
-        response = f"📦 Order Status for {order_id}:\n\n"
+        response = f"Order Status for {order_id}:\n\n"
         response += f"Product: {product_name}\n"
         response += f"Status: {order['status']}\n"
         response += f"Order Date: {order['order_date']}\n"
@@ -159,28 +133,26 @@ def handle_order_status(perception):
         
         # Add personalized message for authenticated users
         if user_role == 'customer' and user_id:
-            response += "\n\n💡 As a registered customer, your chat history is saved."
+            response += "\n\nAs a registered customer, your chat history is saved."
         elif user_role == 'admin':
-            response += "\n\n🔑 Admin access: Full order details available."
+            response += "\n\n Admin access: Full order details available."
         
         return response
     else:
-        return f"❌ I couldn't find order {order_id}. Please check the order number and try again."
+        return f"I couldn't find order {order_id}. Please check the order number and try again."
 
 
 def handle_request_order_id(perception):
-    """Request order ID from user."""
-    return "I'd be happy to check your order status! 📦\n\nPlease provide your order number (format: ORD12345)."
+    return "I'd be happy to check your order status! \n\nPlease provide your order number (format: ORD12345)."
 
 
 def handle_return_policy(perception):
-    """Provide general return policy."""
     policy = kb.get_return_policy()
     
     if not policy:
         return "Return policy information is currently unavailable."
     
-    response = "🔄 Return Policy:\n\n"
+    response = "Return Policy:\n\n"
     response += f"{policy.get('general', '')}\n\n"
     
     if 'conditions' in policy:
@@ -208,15 +180,14 @@ def handle_product_returnability(perception):
     
     if product:
         if product['returnable']:
-            return f"✅ {product['name']} is returnable within {product['return_window']} days of delivery."
+            return f"{product['name']} is returnable within {product['return_window']} days of delivery."
         else:
-            return f"❌ {product['name']} is non-returnable."
+            return f"{product['name']} is non-returnable."
     else:
         return handle_return_policy(perception)
 
 
 def handle_recommend_products(perception):
-    """Recommend products based on criteria."""
     category = perception.get('category')
     max_price = perception.get('max_price')
     
@@ -227,7 +198,7 @@ def handle_recommend_products(perception):
     
     products = products[:5]
     
-    response = "🛍️ Product Recommendations:\n\n"
+    response = "Product Recommendations:\n\n"
     for i, product in enumerate(products, 1):
         response += f"{i}. {product['name']} - ${product['price']:.2f}\n"
         response += f"   Category: {product['category']}\n"
@@ -241,12 +212,11 @@ def handle_recommend_products(perception):
 
 
 def handle_product_info(perception):
-    """Get detailed product information."""
     product_id = perception.get('product_id')
     product = kb.get_product(product_id)
     
     if product:
-        response = f"📱 {product['name']}\n\n"
+        response = f" {product['name']}\n\n"
         response += f"Price: ${product['price']:.2f}\n"
         response += f"Category: {product['category']}\n"
         response += f"Stock: {product['stock']} available\n"
@@ -262,7 +232,7 @@ def handle_shipping_policy(perception):
     if not policy:
         return "Shipping policy information is currently unavailable."
     
-    response = "🚚 Shipping Options:\n\n"
+    response = " Shipping Options:\n\n"
     for method, details in policy.items():
         response += f"{method.title()}:\n"
         response += f"  Duration: {details.get('duration', 'N/A')}\n"
@@ -272,7 +242,6 @@ def handle_shipping_policy(perception):
 
 
 def handle_general_help(perception):
-    """Provide general help information."""
     return ("👋 Welcome to E-Shop Customer Support!\n\n"
             "I can help you with:\n"
             "  • Order status and tracking\n"
@@ -289,13 +258,12 @@ def handle_greet(perception):
 
 
 def handle_warranty_info(perception):
-    """Provide warranty information."""
     warranty = kb.get_warranty_policy()
     
     if not warranty:
         return "Warranty information is currently unavailable."
     
-    response = "🛡️ Warranty Information:\n\n"
+    response = "Warranty Information:\n\n"
     for category, info in warranty.items():
         response += f"{category.replace('_', ' ').title()}: {info}\n"
     
@@ -339,8 +307,6 @@ def chat():
     
     Request body: {"message": "user message"}
     Response: {"response": "chatbot response"}
-    
-    Implements: Requirements 4.1, 4.2, 5.3, 5.4, 6.2
     """
     try:
         data = request.get_json()
@@ -402,44 +368,18 @@ def health():
 # Authentication helper functions
 
 def hash_password(password):
-    """
-    Hash a password using bcrypt.
     
-    Args:
-        password: Plain text password.
-        
-    Returns:
-        Hashed password string.
-    """
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
 
 def verify_password(password, password_hash):
-    """
-    Verify a password against its hash.
-    
-    Args:
-        password: Plain text password.
-        password_hash: bcrypt hashed password.
-        
-    Returns:
-        True if password matches, False otherwise.
-    """
+   
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
 
 
 def generate_token(user_id, role):
-    """
-    Generate a JWT token for a user.
     
-    Args:
-        user_id: User's ID.
-        role: User's role.
-        
-    Returns:
-        JWT token string.
-    """
     payload = {
         'user_id': user_id,
         'role': role,
@@ -450,15 +390,7 @@ def generate_token(user_id, role):
 
 
 def decode_token(token):
-    """
-    Decode and validate a JWT token.
     
-    Args:
-        token: JWT token string.
-        
-    Returns:
-        Decoded payload dict or None if invalid.
-    """
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         return payload
@@ -498,12 +430,6 @@ def token_required(f):
 
 
 def get_current_user_from_token():
-    """
-    Extract user info from Authorization header if present.
-    
-    Returns:
-        Tuple of (user_id, role) or (None, None) if no valid token.
-    """
     auth_header = request.headers.get('Authorization')
     if auth_header and auth_header.startswith('Bearer '):
         token = auth_header.split(' ')[1]
@@ -517,14 +443,6 @@ def get_current_user_from_token():
 
 @app.route('/api/auth/register', methods=['POST'])
 def register():
-    """
-    Register a new user.
-    
-    Request body: {"email": "...", "password": "...", "name": "..."}
-    Response: {"user": {...}, "token": "..."}
-    
-    Implements: Requirements 4.2, 5.1
-    """
     try:
         data = request.get_json()
         
@@ -586,14 +504,6 @@ def register():
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
-    """
-    Authenticate user and return token.
-    
-    Request body: {"email": "...", "password": "..."}
-    Response: {"user": {...}, "token": "..."}
-    
-    Implements: Requirements 4.1, 4.3, 4.4
-    """
     try:
         data = request.get_json()
         
@@ -643,13 +553,6 @@ def login():
 @app.route('/api/auth/logout', methods=['POST'])
 @token_required
 def logout():
-    """
-    Logout user (client should discard token).
-    
-    Response: {"message": "Logged out successfully"}
-    
-    Implements: Requirements 4.5
-    """
     # JWT tokens are stateless, so logout is handled client-side
     # by discarding the token. This endpoint confirms the action.
     return jsonify({'message': 'Logged out successfully'})
@@ -658,13 +561,6 @@ def logout():
 @app.route('/api/auth/me', methods=['GET'])
 @token_required
 def get_current_user():
-    """
-    Get current authenticated user info.
-    
-    Response: {"user": {...}}
-    
-    Implements: Requirements 4.5
-    """
     try:
         user = db.get_user_by_id(request.user_id)
         
@@ -726,7 +622,6 @@ def get_chat_history():
 
 
 def shutdown():
-    """Cleanup on shutdown."""
     global db
     if db:
         db.disconnect()

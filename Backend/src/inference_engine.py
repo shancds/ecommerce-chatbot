@@ -1,14 +1,7 @@
-"""
-Inference Engine Module
-Implements forward chaining for rule-based reasoning
-Demonstrates: Reasoning and Inference
-"""
-
 class InferenceEngine:
     """
     Implements forward chaining inference for production system.
     
-    Process:
     1. Match Phase: Find rules whose conditions match current facts
     2. Conflict Resolution: Select best rule using priority
     3. Execute Phase: Fire the selected rule

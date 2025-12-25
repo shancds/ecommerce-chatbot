@@ -1,8 +1,3 @@
-"""
-NLP Processor Module
-Implements natural language processing for intent classification and entity extraction
-Demonstrates: Natural Language Processing (Unit 1 - Application Areas)
-"""
 
 import re
 
@@ -28,15 +23,7 @@ class NLPProcessor:
         }
     
     def classify_intent(self, text):
-        """
-        Classify user intent using keyword matching.
         
-        Args:
-            text (str): User input text
-            
-        Returns:
-            str: Classified intent
-        """
         text_lower = text.lower()
         
         # Count keyword matches for each intent
@@ -53,47 +40,16 @@ class NLPProcessor:
         return 'general_inquiry'
     
     def extract_order_id(self, text):
-        """
-        Extract order ID using regex pattern.
-        Pattern: ORD followed by 5 digits
-        
-        Args:
-            text (str): User input text
-            
-        Returns:
-            str: Order ID or None
-        """
         pattern = r'ORD\d{5}'
         match = re.search(pattern, text.upper())
         return match.group(0) if match else None
     
     def extract_product_id(self, text):
-        """
-        Extract product ID using regex pattern.
-        Pattern: P followed by 3 digits
-        
-        Args:
-            text (str): User input text
-            
-        Returns:
-            str: Product ID or None
-        """
         pattern = r'P\d{3}'
         match = re.search(pattern, text.upper())
         return match.group(0) if match else None
     
     def extract_price(self, text):
-        """
-        Extract price from text.
-        Patterns: $XX, $XX.XX, XX dollars
-        
-        Args:
-            text (str): User input text
-            
-        Returns:
-            float: Price or None
-        """
-        # Pattern for $XX or $XX.XX
         pattern1 = r'\$(\d+(?:\.\d{2})?)'
         match1 = re.search(pattern1, text)
         if match1:
@@ -108,15 +64,6 @@ class NLPProcessor:
         return None
     
     def extract_category(self, text):
-        """
-        Extract product category from text.
-        
-        Args:
-            text (str): User input text
-            
-        Returns:
-            str: Category or None
-        """
         categories = {
             'electronics': ['electronic', 'electronics', 'gadget', 'device', 'tech'],
             'sports': ['sport', 'sports', 'fitness', 'exercise', 'workout', 'athletic'],
@@ -132,18 +79,8 @@ class NLPProcessor:
         return None
     
     def extract_entities(self, text):
-        """
-        Extract all entities from text.
-        
-        Args:
-            text (str): User input text
-            
-        Returns:
-            dict: Extracted entities
-        """
         entities = {}
         
-        # Extract order ID
         order_id = self.extract_order_id(text)
         if order_id:
             entities['order_id'] = order_id
@@ -172,15 +109,6 @@ class NLPProcessor:
         return entities
     
     def preprocess_text(self, text):
-        """
-        Preprocess text for better matching.
-        
-        Args:
-            text (str): User input text
-            
-        Returns:
-            str: Preprocessed text
-        """
         # Remove extra whitespace
         text = ' '.join(text.split())
         
