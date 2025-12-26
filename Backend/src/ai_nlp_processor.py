@@ -464,15 +464,7 @@ class AINLPProcessor:
         return None
     
     def _preprocess_text(self, text: str) -> str:
-        """
-        Preprocess text for NLP processing.
         
-        Args:
-            text: Raw user input
-            
-        Returns:
-            Preprocessed text string
-        """
         # Remove extra whitespace
         text = ' '.join(text.split())
         
@@ -483,32 +475,7 @@ class AINLPProcessor:
         return text.strip()
     
     def process(self, text: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Full NLP processing pipeline.
         
-        Combines intent classification and entity extraction into a single
-        result compatible with the InferenceEngine. Includes ambiguity detection
-        for clarification requests.
-        
-        Args:
-            text: User message to process
-            context: Optional conversation context from previous messages
-            
-        Returns:
-            Dictionary containing:
-                - intent: str - Classified intent name
-                - confidence: float - Confidence score between 0 and 1
-                - entities: dict - All extracted entities
-                - processed_input: str - Preprocessed text
-                - raw_input: str - Original user input
-                - used_fallback: bool - Whether fallback was used
-                - all_intent_scores: dict - All intent probabilities
-                - is_ambiguous: bool - Whether intent is ambiguous
-                - ambiguous_intents: list - Top intents when ambiguous
-                - needs_clarification: bool - Whether clarification is needed
-        
-        Requirements: 5.3, 2.1, 2.3, 8.1, 8.2
-        """
         if not text:
             return {
                 'intent': 'general_inquiry',
@@ -550,19 +517,7 @@ class AINLPProcessor:
         }
     
     def _apply_context(self, entities: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Apply conversation context to fill in missing entities.
         
-        If an entity is not found in the current message but exists in context,
-        use the context value.
-        
-        Args:
-            entities: Extracted entities from current message
-            context: Conversation context with previous entities
-            
-        Returns:
-            Updated entities dictionary
-        """
         if not context:
             return entities
         
@@ -615,20 +570,7 @@ class AINLPProcessor:
     }
     
     def generate_clarification_question(self, ambiguous_intents: List[Dict[str, Any]]) -> str:
-        """
-        Generate a clarifying question when intents are ambiguous.
         
-        Creates a user-friendly question asking the user to clarify their intent
-        based on the top ambiguous intents detected.
-        
-        Args:
-            ambiguous_intents: List of dicts with 'intent' and 'score' keys
-            
-        Returns:
-            Clarifying question string
-        
-        Requirements: 8.2
-        """
         if not ambiguous_intents:
             return self.generate_low_confidence_suggestions()
         
@@ -649,17 +591,7 @@ class AINLPProcessor:
         return question
     
     def generate_low_confidence_suggestions(self) -> str:
-        """
-        Generate helpful suggestions when confidence is low.
         
-        Provides examples of supported queries to help the user
-        rephrase their question effectively.
-        
-        Returns:
-            Suggestions string with examples
-        
-        Requirements: 8.1, 8.3
-        """
         suggestions = "Hello... I'm AI assistant for your request.\n\n"
         suggestions += "Here are some things I can help you with:\n\n"
         suggestions += "📦 Orders:\n"

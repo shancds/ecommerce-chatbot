@@ -59,19 +59,7 @@ def init_app():
 
 
 def process_message(user_input, user_context=None, conversation_context=None):
-    """
-    Process user message with AI-enhanced NLP.
-    
-    Args:
-        user_input: User's message
-        user_context: Authentication context {user_id, role}
-        conversation_context: ConversationContext instance for multi-turn conversations
-        
-    Returns:
-        Response string with data from database
-        
-    Requirements: 5.3, 8.1, 8.2, 8.3
-    """
+   
     if user_context is None:
         user_context = {'user_id': None, 'role': 'guest'}
     
@@ -699,14 +687,6 @@ def handle_user_profile(perception):
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
-    """
-    Process chat message and return response.
-    For authenticated users, stores messages in database and provides
-    role-based access to information.
-    
-    Request body: {"message": "user message", "session_id": "optional session id"}
-    Response: {"response": "chatbot response"}
-    """
     try:
         data = request.get_json()
         
