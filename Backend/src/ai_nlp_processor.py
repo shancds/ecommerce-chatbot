@@ -1,12 +1,4 @@
-"""
-AI-Enhanced NLP Processor for E-Shop Chatbot.
 
-This module provides AI-based natural language processing using Hugging Face
-Transformers for intent classification, with fallback to keyword-based NLP
-when confidence is low or model loading fails.
-
-Requirements: 1.1, 1.2, 1.3, 1.4, 5.1, 5.2, 5.3
-"""
 
 import logging
 import re
@@ -19,16 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class AINLPProcessor:
-    """
-    AI-enhanced NLP processor using Hugging Face Transformers.
-    Falls back to keyword matching when confidence is low or model fails to load.
     
-    Attributes:
-        config: NLPConfig instance with model and threshold settings
-        use_ai: Whether AI classification is available
-        classifier: Hugging Face zero-shot classification pipeline
-        fallback_nlp: Keyword-based NLP processor for fallback
-    """
     
     # Mapping from zero-shot labels to internal intent names
     INTENT_MAPPING = {
@@ -48,14 +31,7 @@ class AINLPProcessor:
     }
     
     def __init__(self, config: Optional[NLPConfig] = None):
-        """
-        Initialize the AI NLP processor.
         
-        Args:
-            config: Optional NLPConfig instance. If None, loads from environment.
-        
-        Requirements: 5.1, 5.2, 7.1
-        """
         self.config = config or NLPConfig.from_env()
         self.use_ai = False
         self.classifier = None
@@ -64,14 +40,7 @@ class AINLPProcessor:
         self._load_model()
     
     def _load_model(self) -> None:
-        """
-        Load the Hugging Face zero-shot classification model.
         
-        Falls back to keyword-based NLP if model loading fails.
-        Model loading should complete within 30 seconds.
-        
-        Requirements: 5.1, 5.2
-        """
         try:
             from transformers import pipeline
             
@@ -92,40 +61,11 @@ class AINLPProcessor:
             self.use_ai = False
     
     def _map_intent(self, label: str) -> str:
-        """
-        Map zero-shot classification label to internal intent name.
         
-        Args:
-            label: Zero-shot classification label
-            
-        Returns:
-            Internal intent name
-        """
         return self.INTENT_MAPPING.get(label, "general_inquiry")
 
     def classify_intent(self, text: str) -> Dict[str, Any]:
-        """
-        Classify user intent using zero-shot classification.
         
-        Uses Hugging Face zero-shot classification when available and confidence
-        is above threshold. Falls back to keyword-based classification otherwise.
-        Detects ambiguous intents when top scores are similar.
-        
-        Args:
-            text: User message to classify
-            
-        Returns:
-            Dictionary containing:
-                - intent: str - Classified intent name
-                - confidence: float - Confidence score between 0 and 1
-                - all_scores: dict - All intent scores from classification
-                - used_fallback: bool - Whether fallback was used
-                - is_ambiguous: bool - Whether intent is ambiguous
-                - ambiguous_intents: list - Top intents when ambiguous
-                - needs_clarification: bool - Whether clarification is needed
-        
-        Requirements: 1.1, 1.2, 1.3, 1.4, 8.1, 8.2
-        """
         if not text or not text.strip():
             return {
                 'intent': 'general_inquiry',
@@ -169,15 +109,7 @@ class AINLPProcessor:
         return self._classify_with_fallback(text)
     
     def _classify_with_ai(self, text: str) -> Dict[str, Any]:
-        """
-        Perform zero-shot classification using Hugging Face model.
         
-        Args:
-            text: User message to classify
-            
-        Returns:
-            Classification result dictionary
-        """
         result = self.classifier(
             text,
             candidate_labels=self.config.intent_labels,
@@ -206,23 +138,7 @@ class AINLPProcessor:
         }
     
     def _check_ambiguity(self, classification_result: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Check if the classification result is ambiguous.
         
-        Ambiguity is detected when the top two intent scores differ by less
-        than the configured ambiguity_threshold.
-        
-        Args:
-            classification_result: Result from _classify_with_ai
-            
-        Returns:
-            Dictionary with ambiguity information:
-                - is_ambiguous: bool - Whether intent is ambiguous
-                - ambiguous_intents: list - Top intents when ambiguous
-                - needs_clarification: bool - Whether clarification is needed
-        
-        Requirements: 8.2
-        """
         all_scores = classification_result.get('all_scores', {})
         
         if len(all_scores) < 2:
@@ -272,15 +188,7 @@ class AINLPProcessor:
         }
     
     def _classify_with_fallback(self, text: str) -> Dict[str, Any]:
-        """
-        Classify intent using keyword-based fallback.
         
-        Args:
-            text: User message to classify
-            
-        Returns:
-            Classification result dictionary with used_fallback=True
-        """
         intent = self.fallback_nlp.classify_intent(text)
         
         return {
@@ -324,29 +232,7 @@ class AINLPProcessor:
     ]
 
     def extract_entities(self, text: str) -> Dict[str, Any]:
-        """
-        Extract entities from user message.
-        
-        Extracts order IDs, product IDs, prices, categories, and product features
-        from natural language input using regex patterns and keyword matching.
-        
-        Args:
-            text: User message to extract entities from
-            
-        Returns:
-            Dictionary containing:
-                - order_id: str or None - Extracted order ID (ORD#####)
-                - product_id: str or None - Extracted product ID (P###)
-                - category: str or None - Detected product category
-                - max_price: float or None - Maximum price from "under $X" patterns
-                - min_price: float or None - Minimum price from "over $X" patterns
-                - features: list[str] - Extracted product features
-                - product_name: str or None - Extracted product name
-                - has_order_id: bool - Whether order ID was found
-                - has_product_id: bool - Whether product ID was found
-        
-        Requirements: 10.1, 10.2, 10.3, 10.4, 10.5
-        """
+       
         if not text:
             return self._empty_entities()
         
@@ -413,17 +299,7 @@ class AINLPProcessor:
         }
     
     def _extract_order_id(self, text: str) -> Optional[str]:
-        """
-        Extract order ID using ORD##### pattern.
         
-        Args:
-            text: User message
-            
-        Returns:
-            Order ID string or None
-            
-        Requirements: 10.3
-        """
         pattern = r'ORD\d{5}'
         match = re.search(pattern, text.upper())
         return match.group(0) if match else None

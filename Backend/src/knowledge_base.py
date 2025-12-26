@@ -214,17 +214,7 @@ class KnowledgeBase:
     
     def search_products(self, category: str = None, max_price: float = None, 
                         keyword: str = None) -> List[Dict[str, Any]]:
-        """
-        Search products with filters using database queries.
         
-        Args:
-            category: Filter by category (case-insensitive)
-            max_price: Filter by maximum price
-            keyword: Filter by keyword in name, category, or features
-            
-        Returns:
-            List of matching product dictionaries
-        """
         if not self.db:
             return []
         
@@ -293,17 +283,7 @@ class KnowledgeBase:
         feature: str = None, 
         category: str = None
     ) -> List[Dict[str, Any]]:
-        """
-        Search products by name, feature, or category with AND logic.
         
-        Args:
-            name: Search term to match in product name (case-insensitive)
-            feature: Search term to match in product features (case-insensitive)
-            category: Category to filter by (case-insensitive)
-            
-        Returns:
-            List of matching products, limited to 10 results
-        """
         if not self.db:
             return []
         
@@ -350,15 +330,7 @@ class KnowledgeBase:
         return products
 
     def get_user_orders(self, user_id: int) -> Optional[List[Dict[str, Any]]]:
-        """
-        Get orders for an authenticated user.
         
-        Args:
-            user_id: The authenticated user's ID
-            
-        Returns:
-            List of orders (max 10, newest first) or None if user_id is None
-        """
         if user_id is None:
             return None
             
@@ -392,15 +364,7 @@ class KnowledgeBase:
         return orders
 
     def get_user_profile(self, user_id: int) -> Optional[Dict[str, Any]]:
-        """
-        Get profile information for an authenticated user.
         
-        Args:
-            user_id: The authenticated user's ID
-            
-        Returns:
-            User profile dict or None if user_id is None or not found
-        """
         if user_id is None:
             return None
             
@@ -426,3 +390,151 @@ class KnowledgeBase:
             'created_at': str(row['created_at']) if row['created_at'] else None,
             'last_login': str(row['last_login']) if row['last_login'] else None
         }
+
+    def get_content_based_recommendations(self, limit: int = 5) -> List[Dict[str, Any]]:
+        
+        if not self.db:
+            return []
+        
+        # Use subquery to avoid GROUP BY issues with JSON column
+        query = """
+            SELECT p.id, p.name, p.price, p.category, p.features,
+                   p.returnable, p.return_window, p.stock,
+                   COALESCE(click_counts.click_count, 0) as click_count
+            FROM products p
+            LEFT JOIN (
+                SELECT product_id, COUNT(*) as click_count
+                FROM user_product_interactions
+                WHERE interaction_type = 'click'
+                GROUP BY product_id
+            ) click_counts ON p.id = click_counts.product_id
+            ORDER BY click_count DESC, p.name ASC
+            LIMIT %s
+        """
+        results = self.db.execute_query(query, (limit,))
+        
+        products = []
+        for row in results:
+            products.append({
+                'id': row['id'],
+                'name': row['name'],
+                'price': float(row['price']),
+                'category': row['category'],
+                'features': row['features'] if row['features'] else [],
+                'returnable': row['returnable'],
+                'return_window': row['return_window'],
+                'stock': row['stock'],
+                'click_count': row['click_count']
+            })
+        return products
+
+    def get_personalized_recommendations(self, user_id: int, limit: int = 5) -> List[Dict[str, Any]]:
+        
+        if user_id is None or not self.db:
+            return []
+        
+        # Get categories from user's orders
+        query = """
+            SELECT DISTINCT p.category
+            FROM orders o
+            JOIN products p ON o.product_id = p.id
+            WHERE o.user_id = %s AND o.status != 'Cancelled'
+        """
+        category_results = self.db.execute_query(query, (user_id,))
+        
+        if not category_results:
+            return []
+        
+        categories = [row['category'] for row in category_results]
+        
+        # Get products from those categories that user hasn't ordered
+        placeholders = ', '.join(['%s'] * len(categories))
+        query = f"""
+            SELECT p.id, p.name, p.price, p.category, p.features,
+                   p.returnable, p.return_window, p.stock
+            FROM products p
+            WHERE p.category IN ({placeholders})
+              AND p.stock > 0
+              AND p.id NOT IN (
+                  SELECT DISTINCT product_id FROM orders WHERE user_id = %s
+              )
+            ORDER BY p.category, p.price DESC
+            LIMIT %s
+        """
+        params = tuple(categories) + (user_id, limit)
+        results = self.db.execute_query(query, params)
+        
+        products = []
+        for row in results:
+            products.append({
+                'id': row['id'],
+                'name': row['name'],
+                'price': float(row['price']),
+                'category': row['category'],
+                'features': row['features'] if row['features'] else [],
+                'returnable': row['returnable'],
+                'return_window': row['return_window'],
+                'stock': row['stock']
+            })
+        return products
+
+    def get_hybrid_recommendations(self, user_id: int = None, total_limit: int = 10) -> Dict[str, Any]:
+        
+        personalized_limit = 5
+        content_limit = 5
+        
+        # Get personalized recommendations if user is authenticated
+        personalized = []
+        if user_id:
+            personalized = self.get_personalized_recommendations(user_id, limit=personalized_limit + 5)
+        
+        # Calculate how many content-based we need
+        # If no personalized, get all 10 from content-based
+        actual_personalized_count = min(len(personalized), personalized_limit)
+        needed_content = total_limit - actual_personalized_count
+        
+        # Get content-based recommendations (most clicked)
+        content_based = self.get_content_based_recommendations(limit=needed_content + 5)
+        
+        # Build combined list without duplicates
+        seen_ids = set()
+        combined = []
+        
+        # Add personalized first (higher priority for logged-in users)
+        for product in personalized:
+            if len(combined) >= personalized_limit:
+                break
+            if product['id'] not in seen_ids:
+                product['source'] = 'personalized'
+                combined.append(product)
+                seen_ids.add(product['id'])
+        
+        # Fill remaining slots with content-based (excluding already added)
+        for product in content_based:
+            if len(combined) >= total_limit:
+                break
+            if product['id'] not in seen_ids:
+                product['source'] = 'content_based'
+                combined.append(product)
+                seen_ids.add(product['id'])
+        
+        return {
+            'content_based': [p for p in combined if p.get('source') == 'content_based'],
+            'personalized': [p for p in combined if p.get('source') == 'personalized'],
+            'combined': combined[:total_limit]
+        }
+
+    def record_interaction(self, user_id: int, product_id: str, interaction_type: str) -> bool:
+        
+        if not self.db or user_id is None:
+            return False
+        
+        valid_types = ['click', 'like', 'share', 'view', 'wishlist']
+        if interaction_type not in valid_types:
+            return False
+        
+        query = """
+            INSERT INTO user_product_interactions (user_id, product_id, interaction_type)
+            VALUES (%s, %s, %s)
+        """
+        return self.db.execute_write(query, (user_id, product_id, interaction_type))

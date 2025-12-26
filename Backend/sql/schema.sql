@@ -1,5 +1,6 @@
 -- PostgreSQL Schema for E-Shop Customer Support Chatbot
 
+DROP TABLE IF EXISTS user_product_interactions CASCADE;
 DROP TABLE IF EXISTS chat_messages CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS orders CASCADE;
@@ -70,6 +71,15 @@ CREATE TABLE rules (
     response_template TEXT NOT NULL
 );
 
+-- User Product Interactions table (for recommendations)
+CREATE TABLE user_product_interactions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    product_id VARCHAR(10) NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    interaction_type VARCHAR(20) NOT NULL CHECK (interaction_type IN ('click', 'like', 'share', 'view', 'wishlist')),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for common queries
 CREATE INDEX idx_products_category ON products(category);
 CREATE INDEX idx_products_price ON products(price);
@@ -80,3 +90,7 @@ CREATE INDEX idx_rules_priority ON rules(priority DESC);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_chat_messages_user_id ON chat_messages(user_id);
 CREATE INDEX idx_chat_messages_created_at ON chat_messages(created_at DESC);
+CREATE INDEX idx_interactions_user_id ON user_product_interactions(user_id);
+CREATE INDEX idx_interactions_product_id ON user_product_interactions(product_id);
+CREATE INDEX idx_interactions_type ON user_product_interactions(interaction_type);
+CREATE INDEX idx_interactions_created_at ON user_product_interactions(created_at DESC);

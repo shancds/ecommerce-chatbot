@@ -22,7 +22,7 @@ class NLPProcessor:
             'shipping_info': ['shipping', 'delivery time', 'how long does shipping', 'ship', 'deliver'],
             'warranty_info': ['warranty', 'guarantee', 'coverage', 'protection'],
             'payment_info': ['payment', 'pay', 'credit card', 'paypal', 'how to pay'],
-            'cancel_order': ['cancel order', 'cancellation', 'stop order', 'dont want order'],
+            'cancel_order': ['cancel order', 'cancellation', 'stop order', 'dont want order', 'cancel my order', 'cancel'],
             'user_profile': ['my profile', 'my account', 'account details', 'profile info', 'my information', 'show my profile'],
             'general_inquiry': ['help', 'support', 'question', 'info']
         }

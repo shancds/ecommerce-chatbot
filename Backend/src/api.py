@@ -22,7 +22,7 @@ app = Flask(__name__)
 # JWT Configuration
 JWT_SECRET = os.getenv('JWT_SECRET', 'your-secret-key-change-in-production')
 JWT_ALGORITHM = 'HS256'
-JWT_EXPIRATION_HOURS = 24
+JWT_EXPIRATION_HOURS = 24*30
 
 # Global database and agent components
 db = None
@@ -310,88 +310,136 @@ def handle_recommend_products(perception):
     min_price = perception.get('min_price')
     features = perception.get('features', [])
     product_name = perception.get('product_name')
+    user_context = perception.get('user_context', {'role': 'guest'})
+    user_id = user_context.get('user_id')
     
-    # Try advanced search if we have name or features
-    if product_name or features:
-        # Use advanced search with name/feature matching
-        feature_query = features[0] if features else None
-        products = kb.search_products_advanced(
-            name=product_name,
-            feature=feature_query,
-            category=category
-        )
-        
-        # Apply price filters manually if needed
-        if max_price is not None:
-            products = [p for p in products if p['price'] <= max_price]
-        if min_price is not None:
-            products = [p for p in products if p['price'] >= min_price]
-    else:
-        # Use basic search with category and price
-        products = kb.search_products(category=category, max_price=max_price)
-        
-        # Apply min_price filter if specified
-        if min_price is not None:
-            products = [p for p in products if p['price'] >= min_price]
-    
-    if not products:
-        # Provide helpful message when no products found
-        criteria_parts = []
-        if category:
-            criteria_parts.append(f"category '{category}'")
-        if product_name:
-            criteria_parts.append(f"name containing '{product_name}'")
-        if features:
-            criteria_parts.append(f"features: {', '.join(features)}")
-        if max_price:
-            criteria_parts.append(f"under ${max_price:.2f}")
-        if min_price:
-            criteria_parts.append(f"over ${min_price:.2f}")
-        
-        criteria_str = ", ".join(criteria_parts) if criteria_parts else "your criteria"
-        
-        return (f"I couldn't find products matching {criteria_str}.\n\n"
-                "Try:\n"
-                "  • Broadening your search criteria\n"
-                "  • Checking a different category\n"
-                "  • Adjusting your price range")
-    
-    products = products[:5]
-    
-    # Build response header based on search criteria
-    header_parts = []
-    if category:
-        header_parts.append(f"in {category}")
-    if product_name:
-        header_parts.append(f"matching '{product_name}'")
-    if features:
-        header_parts.append(f"with {', '.join(features)}")
-    if max_price:
-        header_parts.append(f"under ${max_price:.2f}")
-    if min_price:
-        header_parts.append(f"over ${min_price:.2f}")
-    
-    header = "Product Recommendations"
-    if header_parts:
-        header += f" ({' '.join(header_parts)})"
-    header += ":\n\n"
-    
-    response = header
-    for i, product in enumerate(products, 1):
-        response += f"{i}. {product['name']} - ${product['price']:.2f}\n"
-        response += f"   Category: {product['category']}\n"
-        
-        # Show features if available
-        if product.get('features'):
-            feature_list = product['features']
-            if isinstance(feature_list, list) and feature_list:
-                response += f"   Features: {', '.join(feature_list[:3])}\n"
-        
-        if product['stock'] > 0:
-            response += f"   ✅ In Stock ({product['stock']} available)\n"
+    # If specific filters are provided, use filtered search
+    if category or max_price or min_price or features or product_name:
+        # Try advanced search if we have name or features
+        if product_name or features:
+            feature_query = features[0] if features else None
+            products = kb.search_products_advanced(
+                name=product_name,
+                feature=feature_query,
+                category=category
+            )
+            
+            if max_price is not None:
+                products = [p for p in products if p['price'] <= max_price]
+            if min_price is not None:
+                products = [p for p in products if p['price'] >= min_price]
         else:
-            response += f"   ❌ Out of Stock\n"
-        response += "\n"
+            products = kb.search_products(category=category, max_price=max_price)
+            
+            if min_price is not None:
+                products = [p for p in products if p['price'] >= min_price]
+        
+        if not products:
+            criteria_parts = []
+            if category:
+                criteria_parts.append(f"category '{category}'")
+            if product_name:
+                criteria_parts.append(f"name containing '{product_name}'")
+            if features:
+                criteria_parts.append(f"features: {', '.join(features)}")
+            if max_price:
+                criteria_parts.append(f"under ${max_price:.2f}")
+            if min_price:
+                criteria_parts.append(f"over ${min_price:.2f}")
+            
+            criteria_str = ", ".join(criteria_parts) if criteria_parts else "your criteria"
+            
+            return (f"I couldn't find products matching {criteria_str}.\n\n"
+                    "Try:\n"
+                    "  • Broadening your search criteria\n"
+                    "  • Checking a different category\n"
+                    "  • Adjusting your price range")
+        
+        products = products[:10]
+        
+        header_parts = []
+        if category:
+            header_parts.append(f"in {category}")
+        if product_name:
+            header_parts.append(f"matching '{product_name}'")
+        if features:
+            header_parts.append(f"with {', '.join(features)}")
+        if max_price:
+            header_parts.append(f"under ${max_price:.2f}")
+        if min_price:
+            header_parts.append(f"over ${min_price:.2f}")
+        
+        header = "Product Recommendations"
+        if header_parts:
+            header += f" ({' '.join(header_parts)})"
+        header += ":\n\n"
+        
+        response = header
+        for i, product in enumerate(products, 1):
+            response += f"{i}. {product['name']} - ${product['price']:.2f}\n"
+            response += f"   Category: {product['category']}\n"
+            
+            if product.get('features'):
+                feature_list = product['features']
+                if isinstance(feature_list, list) and feature_list:
+                    response += f"   Features: {', '.join(feature_list[:3])}\n"
+            
+            if product['stock'] > 0:
+                response += f"   ✅ In Stock ({product['stock']} available)\n"
+            else:
+                response += f"   ❌ Out of Stock\n"
+            response += "\n"
+        
+        return response
+    
+    # No specific filters - use hybrid recommendations (10 items: 5 content + 5 personalized)
+    recommendations = kb.get_hybrid_recommendations(user_id=user_id, total_limit=10)
+    combined = recommendations['combined']
+    
+    if not combined:
+        return ("I couldn't find any product recommendations at this time.\n\n"
+                "Try:\n"
+                "  • Searching for a specific category\n"
+                "  • Specifying a price range\n"
+                "  • Looking for specific features")
+    
+    # Build response with sections
+    response = "🛍️ Product Recommendations:\n\n"
+    
+    # Separate personalized and content-based for display
+    personalized = [p for p in combined if p.get('source') == 'personalized']
+    content_based = [p for p in combined if p.get('source') in ['content_based', 'fallback']]
+    
+    item_num = 1
+    
+    # Show personalized recommendations first (if user is logged in)
+    if personalized:
+        response += "📌 Personalized for You (based on your orders):\n"
+        for product in personalized:
+            response += f"{item_num}. {product['name']} - ${product['price']:.2f}\n"
+            response += f"   Category: {product['category']}\n"
+            if product['stock'] > 0:
+                response += f"   ✅ In Stock\n"
+            else:
+                response += f"   ❌ Out of Stock\n"
+            response += "\n"
+            item_num += 1
+    
+    # Show trending/popular products
+    if content_based:
+        response += "🔥 Trending Products (most popular):\n"
+        for product in content_based:
+            response += f"{item_num}. {product['name']} - ${product['price']:.2f}\n"
+            response += f"   Category: {product['category']}\n"
+            if product['stock'] > 0:
+                response += f"   ✅ In Stock\n"
+            else:
+                response += f"   ❌ Out of Stock\n"
+            response += "\n"
+            item_num += 1
+    
+    if user_id is None:
+        response += "💡 Tip: Log in to get personalized recommendations based on your orders!"
     
     return response
 
@@ -984,6 +1032,92 @@ def get_chat_history():
     
     except Exception as e:
         logger.error(f"Error getting chat history: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/interactions', methods=['POST'])
+@token_required
+def record_product_interaction():
+    """
+    Record a user interaction with a product.
+    
+    Request body: {"product_id": "P001", "interaction_type": "click"}
+    Response: {"success": true}
+    
+    Valid interaction types: click, like, share, view, wishlist
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'Request body must be JSON'}), 400
+        
+        product_id = data.get('product_id', '').strip()
+        interaction_type = data.get('interaction_type', '').strip().lower()
+        
+        if not product_id:
+            return jsonify({'error': 'Product ID is required'}), 400
+        
+        valid_types = ['click', 'like', 'share', 'view', 'wishlist']
+        if interaction_type not in valid_types:
+            return jsonify({'error': f'Invalid interaction type. Must be one of: {", ".join(valid_types)}'}), 400
+        
+        # Verify product exists
+        product = kb.get_product(product_id)
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+        
+        # Record the interaction
+        success = kb.record_interaction(request.user_id, product_id, interaction_type)
+        
+        if success:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'error': 'Failed to record interaction'}), 500
+    
+    except Exception as e:
+        logger.error(f"Error recording interaction: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+
+@app.route('/api/recommendations', methods=['GET'])
+def get_recommendations():
+    """
+    Get product recommendations.
+    
+    For authenticated users: Returns 5 personalized + 5 content-based recommendations.
+    For guests: Returns 10 content-based (most clicked) recommendations.
+    
+    Response: {"recommendations": [...], "personalized_count": n, "content_based_count": n}
+    """
+    try:
+        user_id, _ = get_current_user_from_token()
+        
+        recommendations = kb.get_hybrid_recommendations(user_id=user_id, total_limit=10)
+        combined = recommendations['combined']
+        
+        # Format response
+        formatted = []
+        for product in combined:
+            formatted.append({
+                'id': product['id'],
+                'name': product['name'],
+                'price': product['price'],
+                'category': product['category'],
+                'features': product.get('features', []),
+                'stock': product['stock'],
+                'source': product.get('source', 'unknown')
+            })
+        
+        return jsonify({
+            'recommendations': formatted,
+            'personalized_count': len(recommendations['personalized']),
+            'content_based_count': len(recommendations['content_based']),
+            'is_authenticated': user_id is not None
+        })
+    
+    except Exception as e:
+        logger.error(f"Error getting recommendations: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 
