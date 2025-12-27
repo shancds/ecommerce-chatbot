@@ -1,7 +1,7 @@
 
 import os
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
@@ -81,5 +81,86 @@ class NLPConfig:
         return config
 
 
-# Default configuration instance
+@dataclass
+class OpenAIConfig:
+    """
+    Configuration for the OpenAI-compatible model (AIML API).
+    
+    Attributes:
+        api_base_url: Base URL for the OpenAI-compatible API
+        api_key: API key for authentication
+        model_name: Model name to use (e.g., openai/gpt-oss-20b)
+        enabled: Whether to use the OpenAI model
+        timeout: Request timeout in seconds
+        weight: Weight for ensemble scoring (0-1)
+        system_prompt: System prompt for the assistant role
+    """
+    api_base_url: str = "https://api.aimlapi.com/v1"
+    api_key: Optional[str] = None
+    model_name: str = "openai/gpt-oss-20b"
+    enabled: bool = True
+    timeout: int = 30
+    weight: float = 0.6
+    system_prompt: str = "You are an e-commerce platform assistant. Help customers with orders, products, returns, shipping, and general inquiries. Be helpful, concise, and friendly."
+    
+    @classmethod
+    def from_env(cls) -> "OpenAIConfig":
+        """
+        Create OpenAIConfig from environment variables.
+        
+        Environment Variables:
+            OPENAI_API_BASE_URL: API base URL (default: https://api.aimlapi.com/v1)
+            OPENAI_API_KEY: API key for authentication
+            OPENAI_MODEL_NAME: Model name (default: openai/gpt-oss-20b)
+            OPENAI_ENABLED: Enable/disable OpenAI model (default: true)
+            OPENAI_TIMEOUT: Request timeout in seconds (default: 30)
+            OPENAI_WEIGHT: Weight for ensemble scoring (default: 0.6)
+        
+        Returns:
+            OpenAIConfig instance with values from environment or defaults
+        """
+        config = cls()
+        
+        # Load API base URL
+        api_base_url = os.getenv("OPENAI_API_BASE_URL")
+        if api_base_url:
+            config.api_base_url = api_base_url
+        
+        # Load API key
+        config.api_key = os.getenv("OPENAI_API_KEY")
+        
+        # Load model name
+        model_name = os.getenv("OPENAI_MODEL_NAME")
+        if model_name:
+            config.model_name = model_name
+        
+        # Load enabled flag
+        enabled = os.getenv("OPENAI_ENABLED", "true").lower()
+        config.enabled = enabled in ("true", "1", "yes")
+        
+        # Load timeout
+        timeout = os.getenv("OPENAI_TIMEOUT")
+        if timeout:
+            try:
+                config.timeout = int(timeout)
+            except ValueError:
+                pass
+        
+        # Load weight
+        weight = os.getenv("OPENAI_WEIGHT")
+        if weight:
+            try:
+                config.weight = float(weight)
+            except ValueError:
+                pass
+        
+        return config
+    
+    def is_configured(self) -> bool:
+        """Check if the OpenAI config has required settings."""
+        return self.enabled and self.api_key is not None and len(self.api_key) > 0
+
+
+# Default configuration instances
 default_config = NLPConfig()
+default_openai_config = OpenAIConfig()

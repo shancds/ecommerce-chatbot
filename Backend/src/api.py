@@ -93,8 +93,17 @@ def process_message(user_input, user_context=None, conversation_context=None):
             clarification = ai_nlp.generate_clarification_question(ambiguous_intents)
             return clarification
         
-        # Handle low confidence - provide suggestions (Requirement 8.1, 8.3)
+        # Handle low confidence - try OpenAI conversational response first
         if needs_clarification and confidence < ai_nlp.config.confidence_threshold:
+            # Try to generate a conversational response using OpenAI
+            conversational_response = ai_nlp.generate_conversational_response(
+                user_input, 
+                context={'user_id': user_context.get('user_id'), **entities}
+            )
+            if conversational_response:
+                return conversational_response
+            
+            # Fall back to suggestions
             suggestions = ai_nlp.generate_low_confidence_suggestions()
             return suggestions
         
@@ -135,8 +144,14 @@ def process_message(user_input, user_context=None, conversation_context=None):
     
     # Action phase
     if not rule:
-        # No rule matched - provide helpful suggestions (Requirement 8.3)
+        # No rule matched - try OpenAI conversational response first
         if ai_nlp is not None:
+            conversational_response = ai_nlp.generate_conversational_response(
+                user_input,
+                context={'user_id': user_context.get('user_id')}
+            )
+            if conversational_response:
+                return conversational_response
             return ai_nlp.generate_low_confidence_suggestions()
         else:
             return ("I'm not sure I understood that correctly.\n\n"
@@ -149,6 +164,14 @@ def process_message(user_input, user_context=None, conversation_context=None):
     
     action = rule['action']
     response = execute_action(action, perception)
+    
+    # Enhance response using OpenAI if confidence was moderate
+    if ai_nlp is not None and confidence < 0.7 and confidence >= ai_nlp.config.confidence_threshold:
+        enhanced_response = ai_nlp.generate_enhanced_response(
+            user_input, response, intent
+        )
+        if enhanced_response:
+            response = enhanced_response
     
     # Update conversation context if available
     if conversation_context:
@@ -757,6 +780,31 @@ def health():
     
     status_code = 200 if db_connected else 503
     return jsonify(status), status_code
+
+
+@app.route('/api/model-status', methods=['GET'])
+def model_status():
+    """
+    Return AI model status including HuggingFace and OpenAI models.
+    
+    Response: {
+        "huggingface": {"enabled": bool, "model": str, "weight": float},
+        "openai": {"enabled": bool, "model": str, "weight": float, "api_url": str},
+        "hybrid_mode": bool,
+        "fallback_available": bool
+    }
+    """
+    if ai_nlp is not None:
+        status = ai_nlp.get_model_status()
+    else:
+        status = {
+            'huggingface': {'enabled': False, 'model': None, 'weight': 0},
+            'openai': {'enabled': False, 'model': None, 'weight': 0, 'api_url': None},
+            'hybrid_mode': False,
+            'fallback_available': True
+        }
+    
+    return jsonify(status)
 
 
 # Authentication helper functions
