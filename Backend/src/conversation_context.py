@@ -1,12 +1,4 @@
-"""
-Conversation Context Management for E-Shop Chatbot.
 
-This module provides conversation context tracking for follow-up questions
-and multi-turn conversations. It maintains entity references and detects
-topic changes.
-
-Requirements: 4.1, 4.2, 4.3
-"""
 
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
@@ -15,16 +7,7 @@ from datetime import datetime
 
 @dataclass
 class ConversationExchange:
-    """
-    Represents a single exchange in the conversation.
     
-    Attributes:
-        user_input: The user's message
-        intent: Classified intent for the message
-        entities: Extracted entities from the message
-        response: System response to the message
-        timestamp: When the exchange occurred
-    """
     user_input: str
     intent: str
     entities: Dict[str, Any]
@@ -33,20 +16,7 @@ class ConversationExchange:
 
 
 class ConversationContext:
-    """
-    Manages conversation context for follow-up questions.
     
-    Maintains a history of conversation exchanges and provides context
-    for understanding follow-up questions. Limits history to a configurable
-    maximum number of exchanges.
-    
-    Attributes:
-        max_history: Maximum number of exchanges to retain (default: 5)
-        history: List of ConversationExchange objects
-        auth_state: Preserved authentication state
-    
-    Requirements: 4.1, 4.2, 4.3
-    """
     
     # Intent groups for topic change detection
     INTENT_GROUPS = {
@@ -58,14 +28,7 @@ class ConversationContext:
     }
     
     def __init__(self, max_history: int = 5):
-        """
-        Initialize conversation context with maximum history length.
         
-        Args:
-            max_history: Maximum number of exchanges to retain (default: 5)
-        
-        Requirements: 4.2
-        """
         self.max_history = max_history
         self.history: List[ConversationExchange] = []
         self.auth_state: Optional[Dict[str, Any]] = None

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class AINLPProcessor:
     
     
-    # Mapping from zero-shot labels to internal intent names
+    
     INTENT_MAPPING = {
         "greeting": "greeting",
         "order status inquiry": "order_status",
@@ -77,27 +77,27 @@ class AINLPProcessor:
                 'needs_clarification': False
             }
         
-        # Try AI classification if available
+        
         if self.use_ai and self.classifier is not None:
             try:
                 result = self._classify_with_ai(text)
                 
-                # Check for ambiguity (top intents have similar scores)
+                
                 ambiguity_result = self._check_ambiguity(result)
                 result.update(ambiguity_result)
                 
-                # Check if confidence meets threshold
+                
                 if result['confidence'] >= self.config.confidence_threshold:
                     return result
                 else:
-                    # Confidence too low, use fallback
+                    
                     logger.debug(
                         f"AI confidence {result['confidence']:.2f} below threshold "
                         f"{self.config.confidence_threshold}, using fallback"
                     )
                     fallback_result = self._classify_with_fallback(text)
                     fallback_result['all_scores'] = result['all_scores']
-                    # Mark as needing clarification due to low confidence
+                    
                     fallback_result['needs_clarification'] = True
                     return fallback_result
                     
@@ -105,7 +105,7 @@ class AINLPProcessor:
                 logger.error(f"AI classification failed: {e}")
                 return self._classify_with_fallback(text)
         
-        # AI not available, use fallback
+        
         return self._classify_with_fallback(text)
     
     def _classify_with_ai(self, text: str) -> Dict[str, Any]:
@@ -116,13 +116,13 @@ class AINLPProcessor:
             multi_label=False
         )
         
-        # Build all_scores dictionary
+        
         all_scores = {}
         for label, score in zip(result['labels'], result['scores']):
             mapped_intent = self._map_intent(label)
             all_scores[mapped_intent] = score
         
-        # Get top intent
+        
         top_label = result['labels'][0]
         top_score = result['scores'][0]
         mapped_intent = self._map_intent(top_label)
@@ -148,23 +148,23 @@ class AINLPProcessor:
                 'needs_clarification': False
             }
         
-        # Sort intents by score descending
+        
         sorted_intents = sorted(all_scores.items(), key=lambda x: x[1], reverse=True)
         
         top_intent, top_score = sorted_intents[0]
         second_intent, second_score = sorted_intents[1]
         
-        # Check if scores are within ambiguity threshold
+        
         score_difference = top_score - second_score
         
         if score_difference < self.config.ambiguity_threshold:
-            # Ambiguous - top intents have similar scores
+            
             ambiguous_intents = [
                 {'intent': top_intent, 'score': top_score},
                 {'intent': second_intent, 'score': second_score}
             ]
             
-            # Check if there's a third intent also close
+            
             if len(sorted_intents) > 2:
                 third_intent, third_score = sorted_intents[2]
                 if top_score - third_score < self.config.ambiguity_threshold * 2:
@@ -193,7 +193,7 @@ class AINLPProcessor:
         
         return {
             'intent': intent,
-            'confidence': 0.5,  # Default confidence for keyword matching
+            'confidence': 0.5,  
             'all_scores': {intent: 0.5},
             'used_fallback': True,
             'is_ambiguous': False,
@@ -201,7 +201,7 @@ class AINLPProcessor:
             'needs_clarification': False
         }
 
-    # Category keywords for entity extraction
+    
     CATEGORY_KEYWORDS = {
         'electronics': ['electronic', 'electronics', 'gadget', 'gadgets', 'device', 
                        'devices', 'tech', 'technology', 'phone', 'laptop', 'computer',
@@ -220,7 +220,7 @@ class AINLPProcessor:
         'toys': ['toy', 'toys', 'game', 'games', 'puzzle', 'lego', 'doll', 'action figure']
     }
     
-    # Feature keywords for entity extraction
+    
     FEATURE_KEYWORDS = [
         'wireless', 'bluetooth', 'wifi', 'wi-fi', 'portable', 'rechargeable',
         'waterproof', 'water-resistant', 'lightweight', 'heavy-duty', 'compact',
@@ -248,36 +248,36 @@ class AINLPProcessor:
             'has_product_id': False
         }
         
-        # Extract order ID (ORD followed by 5 digits)
+        
         order_id = self._extract_order_id(text)
         if order_id:
             entities['order_id'] = order_id
             entities['has_order_id'] = True
         
-        # Extract product ID (P followed by 3 digits)
+        
         product_id = self._extract_product_id(text)
         if product_id:
             entities['product_id'] = product_id
             entities['has_product_id'] = True
         
-        # Extract prices
+        
         max_price, min_price = self._extract_prices(text)
         if max_price is not None:
             entities['max_price'] = max_price
         if min_price is not None:
             entities['min_price'] = min_price
         
-        # Extract category
+        
         category = self._extract_category(text)
         if category:
             entities['category'] = category
         
-        # Extract features
+        
         features = self._extract_features(text)
         if features:
             entities['features'] = features
         
-        # Extract product name
+        
         product_name = self._extract_product_name(text)
         if product_name:
             entities['product_name'] = product_name
@@ -305,44 +305,18 @@ class AINLPProcessor:
         return match.group(0) if match else None
     
     def _extract_product_id(self, text: str) -> Optional[str]:
-        """
-        Extract product ID using P### pattern.
         
-        Args:
-            text: User message
-            
-        Returns:
-            Product ID string or None
-            
-        Requirements: 10.4
-        """
         pattern = r'P\d{3}'
         match = re.search(pattern, text.upper())
         return match.group(0) if match else None
     
     def _extract_prices(self, text: str) -> tuple:
-        """
-        Extract price information from text.
         
-        Handles formats:
-        - $XX or $XX.XX
-        - XX dollars
-        - under/below/less than $XX (max_price)
-        - over/above/more than $XX (min_price)
-        
-        Args:
-            text: User message
-            
-        Returns:
-            Tuple of (max_price, min_price), either can be None
-            
-        Requirements: 10.1
-        """
         text_lower = text.lower()
         max_price = None
         min_price = None
         
-        # Pattern for "under/below/less than $XX" or "under/below/less than XX dollars"
+        
         under_patterns = [
             r'(?:under|below|less than|cheaper than|max|maximum)\s*\$(\d+(?:\.\d{2})?)',
             r'(?:under|below|less than|cheaper than|max|maximum)\s*(\d+(?:\.\d{2})?)\s*dollars?'
@@ -354,7 +328,7 @@ class AINLPProcessor:
                 max_price = float(match.group(1))
                 break
         
-        # Pattern for "over/above/more than $XX" or "over/above/more than XX dollars"
+        
         over_patterns = [
             r'(?:over|above|more than|at least|min|minimum)\s*\$(\d+(?:\.\d{2})?)',
             r'(?:over|above|more than|at least|min|minimum)\s*(\d+(?:\.\d{2})?)\s*dollars?'
@@ -366,15 +340,15 @@ class AINLPProcessor:
                 min_price = float(match.group(1))
                 break
         
-        # If no directional price found, look for standalone price as max_price
+        
         if max_price is None and min_price is None:
-            # $XX or $XX.XX format
+            
             dollar_pattern = r'\$(\d+(?:\.\d{2})?)'
             match = re.search(dollar_pattern, text)
             if match:
                 max_price = float(match.group(1))
             else:
-                # XX dollars format
+                
                 dollars_pattern = r'(\d+(?:\.\d{2})?)\s*dollars?'
                 match = re.search(dollars_pattern, text_lower)
                 if match:
@@ -383,22 +357,12 @@ class AINLPProcessor:
         return max_price, min_price
     
     def _extract_category(self, text: str) -> Optional[str]:
-        """
-        Extract product category from keywords.
         
-        Args:
-            text: User message
-            
-        Returns:
-            Category string or None
-            
-        Requirements: 10.2
-        """
         text_lower = text.lower()
         
         for category, keywords in self.CATEGORY_KEYWORDS.items():
             for keyword in keywords:
-                # Use word boundary matching to avoid partial matches
+                
                 pattern = r'\b' + re.escape(keyword) + r'\b'
                 if re.search(pattern, text_lower):
                     return category
@@ -406,25 +370,15 @@ class AINLPProcessor:
         return None
     
     def _extract_features(self, text: str) -> List[str]:
-        """
-        Extract product features from natural language.
         
-        Args:
-            text: User message
-            
-        Returns:
-            List of extracted feature strings
-            
-        Requirements: 10.5
-        """
         text_lower = text.lower()
         found_features = []
         
         for feature in self.FEATURE_KEYWORDS:
-            # Use word boundary matching
+            
             pattern = r'\b' + re.escape(feature) + r'\b'
             if re.search(pattern, text_lower):
-                # Normalize feature name (replace hyphens with spaces for consistency)
+                
                 normalized = feature.replace('-', ' ')
                 if normalized not in found_features:
                     found_features.append(normalized)
@@ -443,9 +397,9 @@ class AINLPProcessor:
         Returns:
             Product name string or None
         """
-        # Common product name patterns
-        # Look for capitalized words that might be product names
-        # Pattern: word starting with capital followed by optional words
+        
+        
+        
         patterns = [
             r'\b([A-Z][a-zA-Z0-9]+(?:\s+[A-Z]?[a-zA-Z0-9]+)*)\s+(?:case|cover|charger|cable|accessory|accessories)',
             r'(?:looking for|find|search for|want|need)\s+(?:a\s+)?([A-Za-z0-9]+(?:\s+[A-Za-z0-9]+)*)',
@@ -456,7 +410,7 @@ class AINLPProcessor:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 product_name = match.group(1).strip()
-                # Filter out common non-product words
+                
                 non_products = ['the', 'a', 'an', 'some', 'any', 'good', 'best', 'cheap', 'expensive']
                 if product_name.lower() not in non_products and len(product_name) > 1:
                     return product_name
@@ -465,11 +419,11 @@ class AINLPProcessor:
     
     def _preprocess_text(self, text: str) -> str:
         
-        # Remove extra whitespace
+        
         text = ' '.join(text.split())
         
-        # Remove special characters except those in order/product IDs and prices
-        # Keep alphanumeric, spaces, $, and common punctuation
+        
+        
         text = re.sub(r'[^\w\s\$\.\,\?\!]', '', text)
         
         return text.strip()
@@ -490,16 +444,16 @@ class AINLPProcessor:
                 'needs_clarification': False
             }
         
-        # Preprocess text
+        
         processed_text = self._preprocess_text(text)
         
-        # Classify intent
+        
         classification = self.classify_intent(processed_text)
         
-        # Extract entities
-        entities = self.extract_entities(text)  # Use original text for entity extraction
         
-        # Apply context if available
+        entities = self.extract_entities(text)  
+        
+        
         if context:
             entities = self._apply_context(entities, context)
         
@@ -523,11 +477,11 @@ class AINLPProcessor:
         
         context_entities = context.get('entities', {})
         
-        # Fill in missing entities from context
+        
         for key in ['order_id', 'product_id', 'category', 'product_name']:
             if entities.get(key) is None and context_entities.get(key) is not None:
                 entities[key] = context_entities[key]
-                # Update has_* flags if applicable
+                
                 if key == 'order_id':
                     entities['has_order_id'] = True
                 elif key == 'product_id':
@@ -535,7 +489,7 @@ class AINLPProcessor:
         
         return entities
 
-    # Human-readable intent descriptions for clarification questions
+    
     INTENT_DESCRIPTIONS = {
         'order_status': 'check the status of an order',
         'order_history': 'view your order history',
@@ -552,7 +506,7 @@ class AINLPProcessor:
         'general_inquiry': 'get general help'
     }
     
-    # Example queries for each intent
+    
     INTENT_EXAMPLES = {
         'order_status': '"What\'s the status of ORD12345?"',
         'order_history': '"Show my recent orders"',

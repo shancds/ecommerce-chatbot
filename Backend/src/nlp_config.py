@@ -1,11 +1,3 @@
-"""
-NLP Configuration Module for AI-Enhanced E-Shop Chatbot.
-
-This module provides configuration management for the AI NLP processor,
-loading settings from environment variables with sensible defaults.
-
-Requirements: 7.1, 7.2, 7.3
-"""
 
 import os
 from dataclasses import dataclass, field

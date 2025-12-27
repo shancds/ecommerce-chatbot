@@ -1,8 +1,4 @@
-"""
-Knowledge Base Module
-Implements production system for knowledge representation
-Demonstrates: Knowledge Representation
-"""
+
 
 import json
 from typing import Optional, List, Dict, Any
@@ -21,15 +17,7 @@ class KnowledgeBase:
         self.facts = {}  # Working memory - stores current state
         
     def get_product(self, product_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Query product from database.
         
-        Args:
-            product_id: Product ID (e.g., P001)
-            
-        Returns:
-            Product dict with all fields or None if not found
-        """
         if not self.db:
             return None
             
@@ -57,15 +45,7 @@ class KnowledgeBase:
         }
     
     def get_order(self, order_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Query order from database.
         
-        Args:
-            order_id: Order ID (e.g., ORD12345)
-            
-        Returns:
-            Order dict with all fields or None if not found
-        """
         if not self.db:
             return None
             
@@ -94,12 +74,7 @@ class KnowledgeBase:
         }
     
     def get_rules(self) -> List[Dict[str, Any]]:
-        """
-        Query all rules from database.
         
-        Returns:
-            List of rule dictionaries, limited to 10 results
-        """
         if not self.db:
             return []
             
@@ -124,12 +99,7 @@ class KnowledgeBase:
         return rules
     
     def get_return_policy(self) -> Dict[str, Any]:
-        """
-        Query return policy from database.
         
-        Returns:
-            Return policy dict or empty dict if not found
-        """
         if not self.db:
             return {}
             
@@ -146,12 +116,7 @@ class KnowledgeBase:
         return results[0]['policy_data'] if results[0]['policy_data'] else {}
     
     def get_shipping_policy(self) -> Dict[str, Any]:
-        """
-        Query shipping policy from database.
         
-        Returns:
-            Shipping policy dict or empty dict if not found
-        """
         if not self.db:
             return {}
             
@@ -168,12 +133,7 @@ class KnowledgeBase:
         return results[0]['policy_data'] if results[0]['policy_data'] else {}
     
     def get_warranty_policy(self) -> Dict[str, Any]:
-        """
-        Query warranty policy from database.
         
-        Returns:
-            Warranty policy dict or empty dict if not found
-        """
         if not self.db:
             return {}
             
@@ -190,12 +150,7 @@ class KnowledgeBase:
         return results[0]['policy_data'] if results[0]['policy_data'] else {}
     
     def get_faq(self) -> Dict[str, Any]:
-        """
-        Query FAQ from database.
         
-        Returns:
-            FAQ dict or empty dict if not found
-        """
         if not self.db:
             return {}
             
