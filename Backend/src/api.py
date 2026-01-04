@@ -10,6 +10,7 @@ from src.database import Database, DatabaseConnectionError, ConfigurationError
 from src.knowledge_base import KnowledgeBase
 from src.inference_engine import InferenceEngine
 from src.nlp_processor import NLPProcessor
+from src.colab_api_client import ColabAPIClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -27,11 +28,12 @@ db = None
 kb = None
 inference_engine = None
 nlp = None
+colab_client = None
 
 
 def init_app():
     """Initialize database connection and agent components."""
-    global db, kb, inference_engine, nlp
+    global db, kb, inference_engine, nlp, colab_client
     
     try:
         db = Database()
@@ -39,10 +41,68 @@ def init_app():
         kb = KnowledgeBase(db)
         inference_engine = InferenceEngine(kb)
         nlp = NLPProcessor()
+        colab_client = ColabAPIClient()
+        
+        if colab_client.is_available():
+            logger.info("Colab API client initialized and available")
+        else:
+            logger.info("Colab API client disabled or not configured")
+        
         logger.info("API initialized successfully")
     except (DatabaseConnectionError, ConfigurationError) as e:
         logger.error(f"Failed to initialize API: {e}")
         raise
+
+
+def should_use_colab_api(intent, entities):
+    """
+    Determine if the query should be routed to Colab API.
+    
+    Routes to Colab API for:
+    - Policy questions (return, shipping, warranty, payment policies)
+    - Platform feature questions
+    - General platform inquiries
+    
+    Routes to local inference for:
+    - Order-specific queries (has order_id)
+    - Product-specific queries (has product_id)
+    - User-specific queries (order history, profile)
+    """
+    # If we have specific entity IDs, use local inference
+    if entities.get('order_id') or entities.get('product_id'):
+        return False
+    
+    # Intents that should use Colab API for richer responses
+    colab_intents = {
+        'policy_inquiry',
+        'return_policy',
+        'shipping_policy', 
+        'warranty_inquiry',
+        'payment_inquiry',
+        'general_inquiry',
+        'platform_features',
+        'help',
+        'faq'
+    }
+    
+    # Intents that must use local inference (data-dependent)
+    local_intents = {
+        'order_status',
+        'order_history',
+        'product_info',
+        'product_recommendation',
+        'user_profile',
+        'cancellation'
+    }
+    
+    if intent in local_intents:
+        return False
+    
+    if intent in colab_intents:
+        return True
+    
+    # Default: try Colab API for unknown intents (policy-related)
+    return True
 
 
 def process_message(user_input, user_context=None):
@@ -62,11 +122,27 @@ def process_message(user_input, user_context=None):
         **entities
     }
     
-    # Reasoning phase
+    # Hybrid routing: decide between Colab API and local inference
+    if colab_client and colab_client.is_available() and should_use_colab_api(intent, entities):
+        logger.info(f"Routing to Colab API for intent: {intent}")
+        colab_response = colab_client.ask(user_input)
+        
+        if colab_response:
+            return colab_response
+        else:
+            logger.warning("Colab API failed, falling back to local inference")
+    
+    # Reasoning phase (local inference)
     rule = inference_engine.infer(perception)
     
     # Action phase
     if not rule:
+        # If no rule matched and Colab is available, try Colab as last resort
+        if colab_client and colab_client.is_available():
+            colab_response = colab_client.ask(user_input)
+            if colab_response:
+                return colab_response
+        
         return ("I'm AI assistant for your service.\n\n"
                 "I can help you with:\n"
                 "  • Order status (provide order number)\n"
@@ -469,15 +545,21 @@ def health():
     """
     Return server and database health status.
     
-    Response: {"status": "healthy/unhealthy", "database": "connected/disconnected"}
+    Response: {"status": "healthy/unhealthy", "database": "connected/disconnected", "colab_api": {...}}
     
     Implements: Requirements 4.3
     """
     db_connected = db.is_connected() if db else False
     
+    # Check Colab API health
+    colab_status = None
+    if colab_client:
+        colab_status = colab_client.health_check()
+    
     status = {
         'status': 'healthy' if db_connected else 'unhealthy',
-        'database': 'connected' if db_connected else 'disconnected'
+        'database': 'connected' if db_connected else 'disconnected',
+        'colab_api': colab_status
     }
     
     status_code = 200 if db_connected else 503
