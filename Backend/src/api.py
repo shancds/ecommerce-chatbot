@@ -12,6 +12,7 @@ from src.inference_engine import InferenceEngine
 from src.nlp_processor import NLPProcessor
 from src.ai_nlp_processor import AINLPProcessor
 from src.conversation_context import ConversationContext
+from src.colab_api_client import ColabAPIClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -30,12 +31,13 @@ kb = None
 inference_engine = None
 nlp = None
 ai_nlp = None
+colab_client = None
 conversation_contexts = {}  # Store conversation contexts per session
 
 
 def init_app():
     """Initialize database connection and agent components."""
-    global db, kb, inference_engine, nlp, ai_nlp
+    global db, kb, inference_engine, nlp, ai_nlp, colab_client
     
     try:
         db = Database()
@@ -52,10 +54,73 @@ def init_app():
             logger.warning(f"AI NLP Processor initialization failed, using fallback: {e}")
             ai_nlp = None
         
+        # Initialize Colab API Client for TinyLlama model
+        try:
+            colab_client = ColabAPIClient()
+            if colab_client.is_available():
+                logger.info("Colab API client initialized and available")
+            else:
+                logger.info("Colab API client disabled or not configured")
+        except Exception as e:
+            logger.warning(f"Colab API client initialization failed: {e}")
+            colab_client = None
+        
         logger.info("API initialized successfully")
     except (DatabaseConnectionError, ConfigurationError) as e:
         logger.error(f"Failed to initialize API: {e}")
         raise
+
+
+def should_use_colab_api(intent, entities):
+    """
+    Determine if the query should be routed to Colab API (TinyLlama model).
+    
+    Routes to Colab API for:
+    - Policy questions (return, shipping, warranty, payment policies)
+    - Platform feature questions
+    - General platform inquiries
+    
+    Routes to local inference for:
+    - Order-specific queries (has order_id)
+    - Product-specific queries (has product_id)
+    - User-specific queries (order history, profile)
+    """
+    # If we have specific entity IDs, use local inference
+    if entities.get('order_id') or entities.get('product_id'):
+        return False
+    
+    # Intents that should use Colab API for richer responses
+    colab_intents = {
+        'policy_inquiry',
+        'return_policy',
+        'shipping_policy', 
+        'warranty_inquiry',
+        'payment_inquiry',
+        'general_inquiry',
+        'platform_features',
+        'help',
+        'faq'
+    }
+    
+    # Intents that must use local inference (data-dependent)
+    local_intents = {
+        'order_status',
+        'order_history',
+        'product_info',
+        'product_recommendation',
+        'user_profile',
+        'cancellation',
+        'greeting'
+    }
+    
+    if intent in local_intents:
+        return False
+    
+    if intent in colab_intents:
+        return True
+    
+    # Default: try Colab API for unknown intents (policy-related)
+    return True
 
 
 def process_message(user_input, user_context=None, conversation_context=None):
@@ -130,11 +195,44 @@ def process_message(user_input, user_context=None, conversation_context=None):
             **entities
         }
     
-    # Reasoning phase
+    # Hybrid routing: decide between Colab API and local inference
+    # Check if we should route to Colab API for policy-related questions
+    if colab_client and colab_client.is_available() and should_use_colab_api(perception['intent'], entities if ai_nlp else perception):
+        logger.info(f"Routing to Colab API for intent: {perception['intent']}")
+        colab_response = colab_client.ask(user_input)
+        
+        if colab_response:
+            # Update conversation context if available
+            if conversation_context:
+                conversation_context.add_exchange(
+                    user_input=user_input,
+                    intent=perception['intent'],
+                    entities=entities if ai_nlp else perception,
+                    response=colab_response
+                )
+            return colab_response
+        else:
+            logger.warning("Colab API failed, falling back to local inference")
+    
+    # Reasoning phase (local inference)
     rule = inference_engine.infer(perception)
     
     # Action phase
     if not rule:
+        # No rule matched - try Colab API as last resort for policy questions
+        if colab_client and colab_client.is_available():
+            logger.info("No rule matched, trying Colab API as fallback")
+            colab_response = colab_client.ask(user_input)
+            if colab_response:
+                if conversation_context:
+                    conversation_context.add_exchange(
+                        user_input=user_input,
+                        intent=perception['intent'],
+                        entities=entities if ai_nlp else perception,
+                        response=colab_response
+                    )
+                return colab_response
+        
         # No rule matched - provide helpful suggestions (Requirement 8.3)
         if ai_nlp is not None:
             return ai_nlp.generate_low_confidence_suggestions()
@@ -744,15 +842,21 @@ def health():
     """
     Return server and database health status.
     
-    Response: {"status": "healthy/unhealthy", "database": "connected/disconnected"}
+    Response: {"status": "healthy/unhealthy", "database": "connected/disconnected", "colab_api": {...}}
     
     Implements: Requirements 4.3
     """
     db_connected = db.is_connected() if db else False
     
+    # Check Colab API health
+    colab_status = None
+    if colab_client:
+        colab_status = colab_client.health_check()
+    
     status = {
         'status': 'healthy' if db_connected else 'unhealthy',
-        'database': 'connected' if db_connected else 'disconnected'
+        'database': 'connected' if db_connected else 'disconnected',
+        'colab_api': colab_status
     }
     
     status_code = 200 if db_connected else 503
